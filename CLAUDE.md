@@ -10,8 +10,10 @@ node canvas — data loading, preprocessing, train/test split, model training
 (scikit-learn and, later, PyTorch), evaluation — with every pipeline
 exportable as a standalone, dependency-free `.py` script.
 
-Only the Python engine (`engine/`) exists so far. The frontend has a design
-spec but no code yet.
+The Python engine (`engine/`) and the frontend (`apps/frontend/` — React +
+Vite + TypeScript: canvas, palette, inspector, generated-code view) both
+exist. The frontend talks to the engine's HTTP API (`GET /nodes`,
+`POST /pipeline/run`, `POST /pipeline/codegen`).
 
 Read before making architectural changes:
 - `docs/superpowers/specs/2026-08-20-visual-ml-builder-design.md` — overall
@@ -25,6 +27,8 @@ Read before making architectural changes:
   check them before assuming an architectural decision needs re-deriving.
 
 ## Commands
+
+### Engine
 
 All commands run from the repo root against `engine/`.
 
@@ -42,9 +46,33 @@ python3 -m venv .venv
 # Run a single test
 .venv/bin/pytest engine/tests/test_executor.py::test_execute_pipeline_runs_end_to_end -v
 
-# Run the engine's HTTP API locally (for manual/frontend testing)
+# Run the engine's HTTP API locally (for manual/frontend testing), default port 8000
 .venv/bin/uvicorn vmb_engine.api:app --reload
 ```
+
+### Frontend
+
+All commands run from `apps/frontend/`.
+
+```bash
+# One-time setup
+npm install
+
+# Run the frontend test suite (Vitest)
+npm test
+
+# Type-check and build
+npm run build
+
+# Run the Vite dev server, default port 5173
+npm run dev
+```
+
+Both dev servers must be running for the app to work end-to-end. The engine
+only sends CORS headers for `http://localhost:5173` and
+`http://127.0.0.1:5173` (see `create_app()` in `vmb_engine/api.py`) — running
+the frontend on a different port means updating the engine's CORS
+`allow_origins` too.
 
 ## Architecture
 
