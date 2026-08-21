@@ -74,6 +74,26 @@ only sends CORS headers for `http://localhost:5173` and
 the frontend on a different port means updating the engine's CORS
 `allow_origins` too.
 
+### Shell (Tauri)
+
+All commands run from `apps/shell/src-tauri/`.
+
+```bash
+# One-time setup: Rust toolchain + Tauri CLI + Linux GUI deps
+# (see docs/superpowers/specs/2026-08-21-tauri-shell-design.md for the
+# exact apt package list on Ubuntu/Debian)
+cargo install tauri-cli --version "^2.0.0" --locked
+
+# Run everything with one command: starts the Vite dev server, spawns the
+# engine (via the repo's .venv/bin/uvicorn) on a free port, and opens the
+# app window. Replaces running the engine and frontend dev servers by hand.
+cargo tauri dev
+```
+
+The engine is spawned straight out of this repo's `.venv` — a dev-only
+stopgap, not the packaged sidecar binary the project will eventually ship
+(see the Tauri shell design spec's non-goals).
+
 ## Architecture
 
 **Pipeline IR is the single source of truth.** A `PipelineIR`
