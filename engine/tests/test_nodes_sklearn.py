@@ -218,6 +218,48 @@ def test_evaluate_regressor_execute_returns_regression_metrics():
     assert metrics["r2"] <= 1.0
 
 
+def test_confusion_matrix_execute_returns_matrix_and_labels():
+    rf = _load_node_module("sklearn_models/random_forest")
+    cm_node = _load_node_module("evaluation/confusion_matrix")
+
+    train_df = _toy_frame()
+    model_outputs = rf.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "n_estimators": 10, "random_state": 42},
+    )
+
+    outputs = cm_node.execute(
+        {"model": model_outputs["model"], "test_table": train_df},
+        {"target_column": "label"},
+    )
+
+    metrics = outputs["metrics"]
+    matrix = metrics["confusion_matrix"]
+    labels = metrics["labels"]
+    assert labels == [0, 1]
+    assert len(matrix) == len(labels)
+    assert all(len(row) == len(labels) for row in matrix)
+    assert sum(sum(row) for row in matrix) == len(train_df)
+
+
+def test_confusion_matrix_codegen_emits_confusion_matrix_call():
+    cm_node = _load_node_module("evaluation/confusion_matrix")
+    lines = cm_node.codegen(
+        {"model": "n3_model", "test_table": "n2_test"},
+        {"target_column": "label"},
+        {"metrics": "n4_metrics"},
+    )
+    assert lines == [
+        "n4_metrics_X = n2_test[n3_model_X.columns]",
+        "n4_metrics_y = n2_test['label']",
+        "n4_metrics_preds = n3_model.predict(n4_metrics_X)",
+        "n4_metrics_labels = sorted(set(n4_metrics_y.tolist()) | set(n4_metrics_preds.tolist()))",
+        "n4_metrics = {'confusion_matrix': confusion_matrix(n4_metrics_y, n4_metrics_preds, "
+        "labels=n4_metrics_labels).tolist(), 'labels': n4_metrics_labels}",
+        "print(n4_metrics)",
+    ]
+
+
 def test_evaluate_regressor_codegen_emits_regression_metrics():
     evaluator = _load_node_module("evaluation/evaluate_regressor")
     lines = evaluator.codegen(
