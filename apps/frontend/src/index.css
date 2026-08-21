@@ -1,0 +1,100 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #ccc;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.node-palette {
+  width: 220px;
+  overflow-y: auto;
+  border-right: 1px solid #ccc;
+  padding: 8px;
+}
+
+.node-palette-item {
+  padding: 4px 8px;
+  margin: 4px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: grab;
+}
+
+.pipeline-canvas {
+  flex: 1;
+  min-width: 0;
+}
+
+.pipeline-node {
+  padding: 8px 12px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: white;
+  min-width: 140px;
+}
+
+.inspector-panel {
+  width: 260px;
+  overflow-y: auto;
+  border-left: 1px solid #ccc;
+  padding: 8px;
+}
+
+.param-control {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.param-control-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.error-banner {
+  color: #b00020;
+  padding: 4px 16px;
+  margin: 0;
+}
+
+.metrics-list {
+  padding: 4px 16px;
+  margin: 0;
+}
+
+.code-view-panel {
+  position: fixed;
+  inset: 0;
+  background: white;
+  overflow: auto;
+  padding: 16px;
+  z-index: 10;
+}
+
+.code-view-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
