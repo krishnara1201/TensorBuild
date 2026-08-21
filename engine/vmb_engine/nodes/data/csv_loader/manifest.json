@@ -1,0 +1,10 @@
+{
+    "id": "data.csv_loader",
+    "category": "Data",
+    "label": "CSV Loader",
+    "inputs": [],
+    "outputs": [{"name": "table", "type": "Table"}],
+    "params": [
+        {"name": "path", "type": "text", "label": "File Path", "default": ""}
+    ]
+}

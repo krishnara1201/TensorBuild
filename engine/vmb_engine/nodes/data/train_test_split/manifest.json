@@ -1,0 +1,14 @@
+{
+    "id": "data.train_test_split",
+    "category": "Data",
+    "label": "Train/Test Split",
+    "inputs": [{"name": "table", "type": "Table"}],
+    "outputs": [
+        {"name": "train", "type": "Table"},
+        {"name": "test", "type": "Table"}
+    ],
+    "params": [
+        {"name": "test_size", "type": "number", "label": "Test Size", "default": 0.2},
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}
