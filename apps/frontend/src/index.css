@@ -55,6 +55,23 @@ body {
   min-width: 140px;
 }
 
+.pipeline-node-port-label {
+  position: absolute;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: #555;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pipeline-node-port-label-target {
+  left: 10px;
+}
+
+.pipeline-node-port-label-source {
+  right: 10px;
+}
+
 .inspector-panel {
   width: 260px;
   overflow-y: auto;

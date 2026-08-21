@@ -1,9 +1,11 @@
 import {
+  addEdge,
   Background,
   Controls,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useNodeConnections,
   Handle,
   Position,
   type Connection,
@@ -12,21 +14,63 @@ import {
   type OnNodesChange,
 } from '@xyflow/react'
 import { useCallback, useRef, type Dispatch, type DragEvent, type SetStateAction } from 'react'
+import type { Port } from '../api/types'
 import { useNodes } from '../api/client'
 import { createPipelineNode } from './nodeFactory'
 import type { PipelineEdge, PipelineNode, PipelineNodeData } from './types'
 import { isValidConnection as validateConnection } from './validation'
 
+const PORT_TOP_OFFSET = 24
+const PORT_ROW_HEIGHT = 16
+const NODE_MIN_HEIGHT_PADDING = 16
+
+// An input port should only ever hold one incoming edge — the executor
+// (engine/vmb_engine/executor.py) overwrites context[port] per edge, so a
+// second connection to the same target port silently drops the first with
+// no error. useNodeConnections lets React Flow itself refuse a second
+// connection at the handle, without teaching validation.ts (a plain,
+// library-free port-type-compatibility function) about existing edges.
+function TargetPort({ port, top }: { port: Port; top: number }) {
+  const connections = useNodeConnections({ handleType: 'target', handleId: port.name })
+  return (
+    <>
+      <Handle
+        id={port.name}
+        type="target"
+        position={Position.Left}
+        isConnectableEnd={connections.length === 0}
+        style={{ top }}
+      />
+      <span className="pipeline-node-port-label pipeline-node-port-label-target" style={{ top }}>
+        {port.name}
+      </span>
+    </>
+  )
+}
+
+function SourcePort({ port, top }: { port: Port; top: number }) {
+  return (
+    <>
+      <Handle id={port.name} type="source" position={Position.Right} style={{ top }} />
+      <span className="pipeline-node-port-label pipeline-node-port-label-source" style={{ top }}>
+        {port.name}
+      </span>
+    </>
+  )
+}
+
 function PipelineNodeRenderer({ data }: NodeProps<PipelineNode>) {
   const { manifest } = data as PipelineNodeData
+  const portRows = Math.max(manifest.inputs.length, manifest.outputs.length, 1)
+  const minHeight = PORT_TOP_OFFSET + portRows * PORT_ROW_HEIGHT + NODE_MIN_HEIGHT_PADDING
   return (
-    <div className="pipeline-node">
+    <div className="pipeline-node" style={{ minHeight }}>
       <div>{manifest.label}</div>
       {manifest.inputs.map((port, index) => (
-        <Handle key={port.name} id={port.name} type="target" position={Position.Left} style={{ top: 24 + index * 16 }} />
+        <TargetPort key={port.name} port={port} top={PORT_TOP_OFFSET + index * PORT_ROW_HEIGHT} />
       ))}
       {manifest.outputs.map((port, index) => (
-        <Handle key={port.name} id={port.name} type="source" position={Position.Right} style={{ top: 24 + index * 16 }} />
+        <SourcePort key={port.name} port={port} top={PORT_TOP_OFFSET + index * PORT_ROW_HEIGHT} />
       ))}
     </div>
   )
@@ -59,16 +103,7 @@ function PipelineCanvasInner({
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) => [
-        ...eds,
-        {
-          id: `${connection.source}-${connection.sourceHandle}-${connection.target}-${connection.targetHandle}`,
-          source: connection.source,
-          sourceHandle: connection.sourceHandle,
-          target: connection.target,
-          targetHandle: connection.targetHandle,
-        },
-      ])
+      setEdges((eds) => addEdge(connection, eds))
     },
     [setEdges],
   )

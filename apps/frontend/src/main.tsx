@@ -5,7 +5,10 @@ import '@xyflow/react/dist/style.css'
 import './index.css'
 import { App } from './App'
 
-const queryClient = new QueryClient()
+// Default retry (3 attempts with backoff) makes the "engine unreachable"
+// error banner take several seconds to appear; one retry is enough to ride
+// out a transient blip without stalling the palette on "Loading nodes…".
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {
