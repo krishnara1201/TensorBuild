@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getCode, getNodes, runPipeline } from '../src/api/client'
+import { getCode, getNodes, runPipeline, resolveBaseUrl } from '../src/api/client'
 import type { NodeManifest, PipelineIR } from '../src/api/types'
+import { invoke } from '@tauri-apps/api/core'
+
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
 
 describe('api/client', () => {
   beforeEach(() => {
@@ -83,5 +86,36 @@ describe('api/client', () => {
       body: JSON.stringify(ir),
     })
     expect(result).toEqual({ code: 'print(1)' })
+  })
+})
+
+describe('resolveBaseUrl', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.mocked(invoke).mockReset()
+  })
+
+  it('uses the Tauri-provided base URL when invoke resolves', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce('http://127.0.0.1:54321')
+
+    await resolveBaseUrl()
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+    await getNodes()
+
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:54321/nodes')
+  })
+
+  it('falls back to the default URL when invoke rejects (no Tauri context)', async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('no tauri context'))
+
+    await resolveBaseUrl()
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+    await getNodes()
+
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/nodes')
   })
 })
