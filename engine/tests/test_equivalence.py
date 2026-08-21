@@ -135,3 +135,58 @@ def test_executor_and_exported_script_agree_with_standardize_node(tmp_path, regi
     script_accuracy = float(match.group(1))
 
     assert executor_accuracy == pytest.approx(script_accuracy, abs=1e-9)
+
+
+def test_executor_and_exported_script_agree_with_regression_pipeline(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,b,label\n" + "\n".join(f"{i},{i * 2},{i * 3.1}" for i in range(60)))
+
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+                {
+                    "id": "n3",
+                    "type": "sklearn_models.linear_regression",
+                    "params": {"target_column": "label"},
+                },
+                {
+                    "id": "n4",
+                    "type": "evaluation.evaluate_regressor",
+                    "params": {"target_column": "label"},
+                },
+            ],
+            "edges": [
+                {"from": "n1.table", "to": "n2.table"},
+                {"from": "n2.train", "to": "n3.train_table"},
+                {"from": "n3.model", "to": "n4.model"},
+                {"from": "n2.test", "to": "n4.test_table"},
+            ],
+        }
+    )
+
+    context = execute_pipeline(ir, registry)
+    executor_r2 = context["n4.metrics"]["r2"]
+
+    code = generate_code(ir, registry)
+    script_path = tmp_path / "exported.py"
+    script_path.write_text(code)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    match = re.search(r"'r2':\s*([0-9.eE+-]+)", result.stdout)
+    assert match is not None, f"no r2 found in script output:\n{result.stdout}"
+    script_r2 = float(match.group(1))
+
+    assert executor_r2 == pytest.approx(script_r2, abs=1e-9)

@@ -1,0 +1,13 @@
+{
+    "id": "evaluation.evaluate_regressor",
+    "category": "Evaluation",
+    "label": "Evaluate Regressor",
+    "inputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "test_table", "type": "Table"}
+    ],
+    "outputs": [{"name": "metrics", "type": "Metrics"}],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""}
+    ]
+}

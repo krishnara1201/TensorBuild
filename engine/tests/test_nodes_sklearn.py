@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 NODES_DIR = Path(__file__).resolve().parents[1] / "vmb_engine" / "nodes"
 
@@ -195,4 +196,44 @@ def test_kmeans_codegen_emits_fit_call():
     assert lines == [
         "n3_model = KMeans(n_clusters=2, random_state=42)",
         "n3_model.fit(n2_train)",
+    ]
+
+
+def test_evaluate_regressor_execute_returns_regression_metrics():
+    lr = _load_node_module("sklearn_models/linear_regression")
+    evaluator = _load_node_module("evaluation/evaluate_regressor")
+
+    train_df = _toy_frame()
+    model_outputs = lr.execute({"train_table": train_df}, {"target_column": "label"})
+
+    metrics_outputs = evaluator.execute(
+        {"model": model_outputs["model"], "test_table": train_df},
+        {"target_column": "label"},
+    )
+
+    metrics = metrics_outputs["metrics"]
+    assert metrics["mse"] >= 0.0
+    assert metrics["rmse"] == pytest.approx(metrics["mse"] ** 0.5)
+    assert metrics["mae"] >= 0.0
+    assert metrics["r2"] <= 1.0
+
+
+def test_evaluate_regressor_codegen_emits_regression_metrics():
+    evaluator = _load_node_module("evaluation/evaluate_regressor")
+    lines = evaluator.codegen(
+        {"model": "n3_model", "test_table": "n2_test"},
+        {"target_column": "label"},
+        {"metrics": "n4_metrics"},
+    )
+    assert lines == [
+        "n4_metrics_X = n2_test[n3_model_X.columns]",
+        "n4_metrics_y = n2_test['label']",
+        "n4_metrics_preds = n3_model.predict(n4_metrics_X)",
+        "n4_metrics_mse = float(mean_squared_error(n4_metrics_y, n4_metrics_preds))",
+        "n4_metrics = {"
+        "'mse': n4_metrics_mse, "
+        "'rmse': n4_metrics_mse ** 0.5, "
+        "'mae': float(mean_absolute_error(n4_metrics_y, n4_metrics_preds)), "
+        "'r2': float(r2_score(n4_metrics_y, n4_metrics_preds))}",
+        "print(n4_metrics)",
     ]
