@@ -128,6 +128,12 @@ shape: two `Table` inputs (`train_table`, `test_table`), two `Table` outputs
 (`train`, `test`) — fit stats only on `train_table`, apply to both, to avoid
 leaking test-set statistics into training.
 
+`Metrics` outputs must be native Python types (`float(...)`, `.tolist()`),
+not numpy scalars/arrays — `/pipeline/run` returns them straight through
+FastAPI's JSON encoder, which doesn't know how to serialize numpy types. See
+`evaluation/confusion_matrix` (`.tolist()` on both the matrix and the label
+set) or any `evaluate_*` node (`float(...)` around sklearn metric calls).
+
 **Executor and codegen walk the same topologically-sorted DAG**
 (`vmb_engine/executor.py`'s `topological_sort`/`split_ref` are imported by
 `vmb_engine/codegen.py`, not reimplemented) so the two paths can't drift
