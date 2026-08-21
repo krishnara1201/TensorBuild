@@ -1,0 +1,10 @@
+{
+    "id": "sklearn_models.linear_regression",
+    "category": "Models (sklearn)",
+    "label": "Linear Regression",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [{"name": "model", "type": "Model"}],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""}
+    ]
+}

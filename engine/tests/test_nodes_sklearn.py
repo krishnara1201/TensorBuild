@@ -86,3 +86,113 @@ def test_evaluate_classifier_codegen_emits_accuracy_score():
         "n4_metrics = {'accuracy': float(accuracy_score(n4_metrics_y, n4_metrics_preds))}",
         "print(n4_metrics)",
     ]
+
+
+def test_logistic_regression_execute_fits_model():
+    lr = _load_node_module("sklearn_models/logistic_regression")
+    train_df = _toy_frame()
+
+    outputs = lr.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "max_iter": 1000, "random_state": 42},
+    )
+
+    model = outputs["model"]
+    assert model["feature_columns"] == ["x1", "x2"]
+    assert hasattr(model["estimator"], "predict")
+
+
+def test_logistic_regression_codegen_emits_fit_call():
+    lr = _load_node_module("sklearn_models/logistic_regression")
+    lines = lr.codegen(
+        {"train_table": "n2_train"},
+        {"target_column": "label", "max_iter": 1000, "random_state": 42},
+        {"model": "n3_model"},
+    )
+    assert lines == [
+        "n3_model_X = n2_train.drop(columns=['label'])",
+        "n3_model_y = n2_train['label']",
+        "n3_model = LogisticRegression(max_iter=1000, random_state=42)",
+        "n3_model.fit(n3_model_X, n3_model_y)",
+    ]
+
+
+def test_linear_regression_execute_fits_model():
+    lr = _load_node_module("sklearn_models/linear_regression")
+    train_df = _toy_frame()
+
+    outputs = lr.execute({"train_table": train_df}, {"target_column": "label"})
+
+    model = outputs["model"]
+    assert model["feature_columns"] == ["x1", "x2"]
+    assert hasattr(model["estimator"], "predict")
+
+
+def test_linear_regression_codegen_emits_fit_call():
+    lr = _load_node_module("sklearn_models/linear_regression")
+    lines = lr.codegen(
+        {"train_table": "n2_train"},
+        {"target_column": "label"},
+        {"model": "n3_model"},
+    )
+    assert lines == [
+        "n3_model_X = n2_train.drop(columns=['label'])",
+        "n3_model_y = n2_train['label']",
+        "n3_model = LinearRegression()",
+        "n3_model.fit(n3_model_X, n3_model_y)",
+    ]
+
+
+def test_svm_execute_fits_model():
+    svm = _load_node_module("sklearn_models/svm")
+    train_df = _toy_frame()
+
+    outputs = svm.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "C": 1.0, "random_state": 42},
+    )
+
+    model = outputs["model"]
+    assert model["feature_columns"] == ["x1", "x2"]
+    assert hasattr(model["estimator"], "predict")
+
+
+def test_svm_codegen_emits_fit_call():
+    svm = _load_node_module("sklearn_models/svm")
+    lines = svm.codegen(
+        {"train_table": "n2_train"},
+        {"target_column": "label", "C": 1.0, "random_state": 42},
+        {"model": "n3_model"},
+    )
+    assert lines == [
+        "n3_model_X = n2_train.drop(columns=['label'])",
+        "n3_model_y = n2_train['label']",
+        "n3_model = SVC(C=1.0, random_state=42)",
+        "n3_model.fit(n3_model_X, n3_model_y)",
+    ]
+
+
+def test_kmeans_execute_fits_model():
+    km = _load_node_module("sklearn_models/kmeans")
+    train_df = _toy_frame()
+
+    outputs = km.execute(
+        {"train_table": train_df}, {"n_clusters": 2, "random_state": 42}
+    )
+
+    model = outputs["model"]
+    assert model["feature_columns"] == ["x1", "x2", "label"]
+    assert hasattr(model["estimator"], "predict")
+
+
+def test_kmeans_codegen_emits_fit_call():
+    km = _load_node_module("sklearn_models/kmeans")
+    lines = km.codegen(
+        {"train_table": "n2_train"},
+        {"n_clusters": 2, "random_state": 42},
+        {"model": "n3_model"},
+    )
+    assert lines == [
+        "n3_model = KMeans(n_clusters=2, random_state=42)",
+        "n3_model.fit(n2_train)",
+    ]

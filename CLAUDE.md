@@ -119,6 +119,15 @@ top-level exception in `node.py`, a duplicate manifest `id`) must fail loudly
 at `registry.scan()` time as `RegistryError`, not at first use — this is a
 spec requirement (Testing Strategy section), not just a nice-to-have.
 
+Ports are arbitrary named inputs/outputs per manifest, not fixed to 1-in/1-out
+— the executor and codegen both iterate `manifest.inputs`/`outputs` generically
+(see `execute_pipeline` in `executor.py`), so a node can declare any port
+shape without core engine changes. `preprocessing/standardize` and
+`preprocessing/one_hot_encode` use this for a fit-on-train/apply-to-both
+shape: two `Table` inputs (`train_table`, `test_table`), two `Table` outputs
+(`train`, `test`) — fit stats only on `train_table`, apply to both, to avoid
+leaking test-set statistics into training.
+
 **Executor and codegen walk the same topologically-sorted DAG**
 (`vmb_engine/executor.py`'s `topological_sort`/`split_ref` are imported by
 `vmb_engine/codegen.py`, not reimplemented) so the two paths can't drift

@@ -1,0 +1,16 @@
+{
+    "id": "preprocessing.standardize",
+    "category": "Preprocessing",
+    "label": "Standardize",
+    "inputs": [
+        {"name": "train_table", "type": "Table"},
+        {"name": "test_table", "type": "Table"}
+    ],
+    "outputs": [
+        {"name": "train", "type": "Table"},
+        {"name": "test", "type": "Table"}
+    ],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column (excluded)", "default": ""}
+    ]
+}

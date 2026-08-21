@@ -1,0 +1,11 @@
+{
+    "id": "sklearn_models.kmeans",
+    "category": "Models (sklearn)",
+    "label": "KMeans",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [{"name": "model", "type": "Model"}],
+    "params": [
+        {"name": "n_clusters", "type": "number", "label": "N Clusters", "default": 3},
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}

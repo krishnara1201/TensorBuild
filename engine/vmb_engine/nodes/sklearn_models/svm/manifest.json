@@ -1,0 +1,12 @@
+{
+    "id": "sklearn_models.svm",
+    "category": "Models (sklearn)",
+    "label": "SVM",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [{"name": "model", "type": "Model"}],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""},
+        {"name": "C", "type": "number", "label": "C", "default": 1.0},
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}
