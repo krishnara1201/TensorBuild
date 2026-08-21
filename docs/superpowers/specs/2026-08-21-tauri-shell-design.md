@@ -64,10 +64,14 @@ apps/shell/
 ```
 
 `tauri.conf.json`:
-- `beforeDevCommand`: `npm --prefix ../frontend run dev`
+- `beforeDevCommand`: `npm --prefix ../frontend run dev` (resolved relative
+  to `apps/shell/`, the app root — `src-tauri`'s parent)
 - `devUrl`: `http://localhost:5173`
-- `beforeBuildCommand`: `npm --prefix ../frontend run build`
-- `frontendDist`: `../frontend/dist`
+- `beforeBuildCommand`: `npm --prefix ../frontend run build` (same base as
+  `beforeDevCommand` above)
+- `frontendDist`: `../../frontend/dist` (resolved relative to `src-tauri/`
+  itself — a different base than the two build commands above; confirmed
+  empirically during implementation)
 
 This means `cargo tauri dev` alone starts Vite (via Tauri's own process
 orchestration) — the shell's Rust code is only responsible for the engine,

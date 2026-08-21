@@ -126,9 +126,20 @@ fn main() {
 
 - [ ] **Step 7: Write `tauri.conf.json`**
 
-Paths below are relative to this file's own directory
-(`apps/shell/src-tauri/`), which is two levels below `apps/frontend`'s
-sibling `apps/shell` — hence `../../frontend`.
+`beforeDevCommand`/`beforeBuildCommand` are resolved by tauri-cli relative to
+the "app root" — `apps/shell/` (this file's parent directory, i.e.
+`src-tauri`'s parent) — so reaching the sibling `apps/frontend` from there
+needs only one `../`: `npm --prefix ../frontend run dev` /
+`run build`.
+
+`frontendDist`, however, is resolved relative to this file's own directory
+(`apps/shell/src-tauri/`) — a *different* base than the other two build
+keys. This asymmetry was confirmed empirically (an isolated throwaway Tauri
+project was built to verify it) after an earlier draft of this plan wrongly
+assumed all three paths shared the same base and used `../../frontend` for
+all of them, which broke `beforeDevCommand`/`beforeBuildCommand` (there is no
+`apps/shell/frontend`). Since `src-tauri` is two levels below `apps/frontend`,
+`frontendDist` needs `../../frontend/dist` to reach `apps/frontend/dist`.
 
 ```json
 {
@@ -137,8 +148,8 @@ sibling `apps/shell` — hence `../../frontend`.
   "version": "0.1.0",
   "identifier": "com.vmb.app",
   "build": {
-    "beforeDevCommand": "npm --prefix ../../frontend run dev",
-    "beforeBuildCommand": "npm --prefix ../../frontend run build",
+    "beforeDevCommand": "npm --prefix ../frontend run dev",
+    "beforeBuildCommand": "npm --prefix ../frontend run build",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../frontend/dist"
   },
