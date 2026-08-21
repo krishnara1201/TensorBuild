@@ -77,3 +77,50 @@ def test_all_returns_manifests(tmp_path):
 
     ids = sorted(m.id for m in registry.all())
     assert ids == ["test.node_a", "test.node_b"]
+
+
+def test_scan_raises_on_missing_manifest(tmp_path):
+    plugin_dir = tmp_path / "orphan_node"
+    plugin_dir.mkdir()
+    (plugin_dir / "node.py").write_text(
+        textwrap.dedent(
+            """
+            IMPORTS = []
+
+            def execute(inputs, params):
+                return {"out": 1}
+
+            def codegen(inputs, params, var_names):
+                return [f"{var_names['out']} = 1"]
+            """
+        )
+    )
+    registry = NodeRegistry()
+
+    with pytest.raises(RegistryError, match="missing manifest"):
+        registry.scan([tmp_path])
+
+
+def test_scan_raises_on_node_py_execution_error(tmp_path):
+    plugin_dir = tmp_path / "broken_exec_node"
+    plugin_dir.mkdir()
+    manifest = {
+        "id": "test.broken_exec_node",
+        "category": "Test",
+        "label": "Test Node",
+        "inputs": [],
+        "outputs": [{"name": "out", "type": "Table"}],
+        "params": [],
+    }
+    (plugin_dir / "manifest.json").write_text(json.dumps(manifest))
+    (plugin_dir / "node.py").write_text(
+        textwrap.dedent(
+            """
+            raise RuntimeError("boom")
+            """
+        )
+    )
+    registry = NodeRegistry()
+
+    with pytest.raises(RegistryError, match="error executing"):
+        registry.scan([tmp_path])

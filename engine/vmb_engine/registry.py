@@ -27,12 +27,21 @@ class NodeRegistry:
         for base in paths:
             if not base.exists():
                 continue
-            for manifest_path in sorted(base.rglob("manifest.json")):
-                self._load_plugin(manifest_path.parent)
+            candidate_dirs = {
+                manifest_path.parent for manifest_path in base.rglob("manifest.json")
+            }
+            candidate_dirs.update(
+                node_path.parent for node_path in base.rglob("node.py")
+            )
+            for plugin_dir in sorted(candidate_dirs):
+                self._load_plugin(plugin_dir)
 
     def _load_plugin(self, plugin_dir: Path) -> None:
         manifest_path = plugin_dir / "manifest.json"
         node_path = plugin_dir / "node.py"
+
+        if not manifest_path.exists():
+            raise RegistryError(f"{plugin_dir}: missing manifest.json")
 
         try:
             manifest = NodeManifest.model_validate(json.loads(manifest_path.read_text()))
@@ -51,7 +60,10 @@ class NodeRegistry:
         if spec is None or spec.loader is None:
             raise RegistryError(f"{plugin_dir}: could not load node.py")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            raise RegistryError(f"{plugin_dir}: error executing node.py: {exc}") from exc
 
         execute = getattr(module, "execute", None)
         codegen = getattr(module, "codegen", None)
