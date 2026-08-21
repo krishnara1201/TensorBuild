@@ -1,0 +1,12 @@
+{
+    "id": "sklearn_models.random_forest",
+    "category": "Models (sklearn)",
+    "label": "Random Forest",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [{"name": "model", "type": "Model"}],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""},
+        {"name": "n_estimators", "type": "number", "label": "N Estimators", "default": 100},
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}

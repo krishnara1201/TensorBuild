@@ -1,0 +1,13 @@
+{
+    "id": "evaluation.evaluate_classifier",
+    "category": "Evaluation",
+    "label": "Evaluate Classifier",
+    "inputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "test_table", "type": "Table"}
+    ],
+    "outputs": [{"name": "metrics", "type": "Metrics"}],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""}
+    ]
+}
