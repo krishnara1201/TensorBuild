@@ -433,6 +433,41 @@ def test_all_returns_manifests(tmp_path):
 
     ids = sorted(m.id for m in registry.all())
     assert ids == ["test.node_a", "test.node_b"]
+
+
+def test_scan_raises_on_missing_manifest(tmp_path):
+    plugin_dir = tmp_path / "no_manifest"
+    plugin_dir.mkdir()
+    (plugin_dir / "node.py").write_text(
+        "IMPORTS = []\n"
+        "def execute(inputs, params):\n"
+        "    return {}\n"
+        "def codegen(inputs, params, var_names):\n"
+        "    return []\n"
+    )
+    registry = NodeRegistry()
+
+    with pytest.raises(RegistryError, match="missing manifest"):
+        registry.scan([tmp_path])
+
+
+def test_scan_raises_on_node_module_execution_error(tmp_path):
+    plugin_dir = tmp_path / "broken_module"
+    plugin_dir.mkdir()
+    manifest = {
+        "id": "test.broken_module",
+        "category": "Test",
+        "label": "Broken Module",
+        "inputs": [],
+        "outputs": [{"name": "out", "type": "Table"}],
+        "params": [],
+    }
+    (plugin_dir / "manifest.json").write_text(json.dumps(manifest))
+    (plugin_dir / "node.py").write_text("raise RuntimeError('boom')\n")
+    registry = NodeRegistry()
+
+    with pytest.raises(RegistryError, match="error executing"):
+        registry.scan([tmp_path])
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -474,12 +509,17 @@ class NodeRegistry:
         for base in paths:
             if not base.exists():
                 continue
-            for manifest_path in sorted(base.rglob("manifest.json")):
-                self._load_plugin(manifest_path.parent)
+            candidates = {p.parent for p in base.rglob("manifest.json")}
+            candidates |= {p.parent for p in base.rglob("node.py")}
+            for plugin_dir in sorted(candidates):
+                self._load_plugin(plugin_dir)
 
     def _load_plugin(self, plugin_dir: Path) -> None:
         manifest_path = plugin_dir / "manifest.json"
         node_path = plugin_dir / "node.py"
+
+        if not manifest_path.exists():
+            raise RegistryError(f"{plugin_dir}: missing manifest.json")
 
         try:
             manifest = NodeManifest.model_validate(json.loads(manifest_path.read_text()))
@@ -498,7 +538,10 @@ class NodeRegistry:
         if spec is None or spec.loader is None:
             raise RegistryError(f"{plugin_dir}: could not load node.py")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            raise RegistryError(f"{plugin_dir}: error executing node.py: {exc}") from exc
 
         execute = getattr(module, "execute", None)
         codegen = getattr(module, "codegen", None)
@@ -525,7 +568,7 @@ class NodeRegistry:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest engine/tests/test_registry.py -v`
-Expected: PASS (4 passed)
+Expected: PASS (6 passed)
 
 - [ ] **Step 5: Commit**
 
