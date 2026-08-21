@@ -833,7 +833,7 @@ def test_evaluate_classifier_codegen_emits_accuracy_score():
         "n4_metrics_X = n2_test.drop(columns=['label'])",
         "n4_metrics_y = n2_test['label']",
         "n4_metrics_preds = n3_model.predict(n4_metrics_X)",
-        "n4_metrics = {'accuracy': accuracy_score(n4_metrics_y, n4_metrics_preds)}",
+        "n4_metrics = {'accuracy': float(accuracy_score(n4_metrics_y, n4_metrics_preds))}",
         "print(n4_metrics)",
     ]
 ```
@@ -946,7 +946,7 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
         f"{out_var}_X = {test_var}.drop(columns=[{target!r}])",
         f"{out_var}_y = {test_var}[{target!r}]",
         f"{out_var}_preds = {model_var}.predict({out_var}_X)",
-        f"{out_var} = {{'accuracy': accuracy_score({out_var}_y, {out_var}_preds)}}",
+        f"{out_var} = {{'accuracy': float(accuracy_score({out_var}_y, {out_var}_preds))}}",
         f"print({out_var})",
     ]
 ```
