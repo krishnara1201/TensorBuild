@@ -20,5 +20,5 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
     random_state = params["random_state"]
     return [
         f"{train_var}, {test_var} = train_test_split("
-        f"{in_var}, test_size={test_size}, random_state={random_state})"
+        f"{in_var}, test_size={test_size!r}, random_state={random_state!r})"
     ]

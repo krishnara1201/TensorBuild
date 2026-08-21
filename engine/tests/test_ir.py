@@ -1,4 +1,8 @@
 import json
+
+import pytest
+from pydantic import ValidationError
+
 from vmb_engine.ir import EdgeSpec, NodeSpec, PipelineIR
 
 
@@ -7,6 +11,12 @@ def test_node_spec_roundtrip():
     assert node.id == "n1"
     assert node.type == "data.csv_loader"
     assert node.params == {"path": "iris.csv"}
+
+
+@pytest.mark.parametrize("bad_id", ["1", "a.b", "n1-bad"])
+def test_node_spec_rejects_invalid_id(bad_id):
+    with pytest.raises(ValidationError):
+        NodeSpec(id=bad_id, type="data.csv_loader", params={})
 
 
 def test_edge_spec_uses_from_alias():

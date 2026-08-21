@@ -87,3 +87,43 @@ def test_execute_pipeline_runs_end_to_end(tmp_path, registry):
     assert "n4.metrics" in context
     accuracy = context["n4.metrics"]["accuracy"]
     assert 0.0 <= accuracy <= 1.0
+
+
+def test_execute_pipeline_wraps_node_exception_with_node_id(registry):
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {
+                    "id": "n1",
+                    "type": "data.csv_loader",
+                    "params": {"path": "/does/not/exist.csv"},
+                },
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(ExecutorError, match="n1"):
+        execute_pipeline(ir, registry)
+
+
+def test_execute_pipeline_raises_on_missing_required_input(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n" + "\n".join(f"{i},{i % 2}" for i in range(20)))
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+                {
+                    "id": "n3",
+                    "type": "sklearn_models.random_forest",
+                    "params": {"target_column": "label", "n_estimators": 10, "random_state": 42},
+                },
+            ],
+            "edges": [],
+        }
+    )
+
+    with pytest.raises(ExecutorError, match="n3") as exc_info:
+        execute_pipeline(ir, registry)
+    assert "train_table" in str(exc_info.value)

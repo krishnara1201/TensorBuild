@@ -69,7 +69,18 @@ def execute_pipeline(ir: PipelineIR, registry: NodeRegistry) -> dict[str, object
                 raise ExecutorError(f"missing value for '{from_ref}' required by '{node_id}'")
             inputs[port_name] = context[from_ref]
 
-        outputs = node_def.execute(inputs, node_spec.params)
+        for port in node_def.manifest.inputs:
+            if port.name not in inputs:
+                raise ExecutorError(
+                    f"node '{node_id}' missing required input '{port.name}'"
+                )
+
+        try:
+            outputs = node_def.execute(inputs, node_spec.params)
+        except Exception as exc:
+            raise ExecutorError(
+                f"node '{node_id}' ({node_spec.type}) failed: {exc}"
+            ) from exc
 
         for port in node_def.manifest.outputs:
             if port.name not in outputs:

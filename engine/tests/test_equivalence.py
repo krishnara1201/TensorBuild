@@ -64,8 +64,9 @@ def test_executor_and_exported_script_produce_same_accuracy(tmp_path, registry):
         [sys.executable, str(script_path)],
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+    assert result.returncode == 0, result.stderr
 
     match = re.search(r"'accuracy':\s*([0-9.]+)", result.stdout)
     assert match is not None, f"no accuracy found in script output:\n{result.stdout}"

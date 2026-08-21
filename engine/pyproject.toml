@@ -23,3 +23,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["vmb_engine*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json"]

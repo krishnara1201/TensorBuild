@@ -21,7 +21,7 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
     out_var = var_names["metrics"]
     target = params["target_column"]
     return [
-        f"{out_var}_X = {test_var}.drop(columns=[{target!r}])",
+        f"{out_var}_X = {test_var}[{model_var}_X.columns]",
         f"{out_var}_y = {test_var}[{target!r}]",
         f"{out_var}_preds = {model_var}.predict({out_var}_X)",
         f"{out_var} = {{'accuracy': float(accuracy_score({out_var}_y, {out_var}_preds))}}",

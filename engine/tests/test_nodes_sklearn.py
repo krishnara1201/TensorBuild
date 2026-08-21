@@ -80,7 +80,7 @@ def test_evaluate_classifier_codegen_emits_accuracy_score():
         {"metrics": "n4_metrics"},
     )
     assert lines == [
-        "n4_metrics_X = n2_test.drop(columns=['label'])",
+        "n4_metrics_X = n2_test[n3_model_X.columns]",
         "n4_metrics_y = n2_test['label']",
         "n4_metrics_preds = n3_model.predict(n4_metrics_X)",
         "n4_metrics = {'accuracy': float(accuracy_score(n4_metrics_y, n4_metrics_preds))}",

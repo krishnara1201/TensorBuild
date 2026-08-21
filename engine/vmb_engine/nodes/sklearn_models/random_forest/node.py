@@ -25,6 +25,6 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
         f"{out_var}_X = {in_var}.drop(columns=[{target!r}])",
         f"{out_var}_y = {in_var}[{target!r}]",
         f"{out_var} = RandomForestClassifier("
-        f"n_estimators={params['n_estimators']}, random_state={params['random_state']})",
+        f"n_estimators={params['n_estimators']!r}, random_state={params['random_state']!r})",
         f"{out_var}.fit({out_var}_X, {out_var}_y)",
     ]

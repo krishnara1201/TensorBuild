@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Port(BaseModel):
@@ -10,6 +10,13 @@ class NodeSpec(BaseModel):
     id: str
     type: str
     params: dict = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id(cls, v: str) -> str:
+        if not v.isidentifier() or "." in v:
+            raise ValueError(f"node id {v!r} must be a valid Python identifier")
+        return v
 
 
 class EdgeSpec(BaseModel):
