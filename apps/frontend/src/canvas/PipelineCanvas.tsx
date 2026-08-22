@@ -1,7 +1,10 @@
 import {
   addEdge,
   Background,
+  BaseEdge,
   Controls,
+  EdgeLabelRenderer,
+  getBezierPath,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -9,6 +12,7 @@ import {
   Handle,
   Position,
   type Connection,
+  type EdgeProps,
   type NodeProps,
   type OnEdgesChange,
   type OnNodesChange,
@@ -76,7 +80,54 @@ function PipelineNodeRenderer({ data }: NodeProps<PipelineNode>) {
   )
 }
 
+function DeleteableEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  markerEnd,
+  style,
+}: EdgeProps) {
+  const { deleteElements } = useReactFlow()
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  })
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
+      <EdgeLabelRenderer>
+        <button
+          type="button"
+          aria-label="Delete connection"
+          className="edge-delete-button nodrag nopan"
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+            pointerEvents: 'all',
+          }}
+          onClick={(event) => {
+            event.stopPropagation()
+            void deleteElements({ edges: [{ id }] })
+          }}
+        >
+          ×
+        </button>
+      </EdgeLabelRenderer>
+    </>
+  )
+}
+
 const NODE_TYPES = { pipelineNode: PipelineNodeRenderer }
+const EDGE_TYPES = { deleteable: DeleteableEdge }
 
 export interface PipelineCanvasProps {
   nodes: PipelineNode[]
@@ -139,6 +190,8 @@ function PipelineCanvasInner({
         onConnect={handleConnect}
         isValidConnection={(connection) => validateConnection(connection, nodes)}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        defaultEdgeOptions={{ type: 'deleteable' }}
         onNodeClick={(_, node) => onSelectNode(node.id)}
         onPaneClick={() => onSelectNode(null)}
         fitView
