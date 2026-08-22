@@ -1,0 +1,16 @@
+{
+    "id": "data.image_folder_loader",
+    "category": "Data",
+    "label": "Image Folder Loader",
+    "inputs": [],
+    "outputs": [
+        {"name": "train", "type": "ImageBatch"},
+        {"name": "test", "type": "ImageBatch"}
+    ],
+    "params": [
+        {"name": "directory", "type": "text", "label": "Directory", "default": ""},
+        {"name": "image_size", "type": "number", "label": "Image Size", "default": 64},
+        {"name": "test_size", "type": "number", "label": "Test Size", "default": 0.2},
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}

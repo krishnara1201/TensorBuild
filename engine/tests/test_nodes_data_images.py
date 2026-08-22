@@ -66,3 +66,54 @@ def test_built_in_image_dataset_codegen_emits_dataset_construction():
         "n1_test_labels = torch.tensor("
         "[n1_test_ds[i][1] for i in range(len(n1_test_ds))], dtype=torch.long)",
     ]
+
+
+def _write_fake_image_folder(root: Path, per_class: int = 6) -> None:
+    for class_name in ("a", "b"):
+        class_dir = root / class_name
+        class_dir.mkdir(parents=True)
+        for i in range(per_class):
+            shade = i * 20
+            Image.new("RGB", (10, 10), color=(shade, shade, shade)).save(class_dir / f"{i}.png")
+
+
+def test_image_folder_loader_execute_builds_uniform_train_test_batches(tmp_path):
+    node = _load_node_module("data/image_folder_loader")
+    _write_fake_image_folder(tmp_path)
+
+    outputs = node.execute(
+        {},
+        {"directory": str(tmp_path), "image_size": 8, "test_size": 0.5, "random_state": 42},
+    )
+
+    assert outputs["train"]["images"].shape[1:] == (3, 8, 8)
+    assert outputs["test"]["images"].shape[1:] == (3, 8, 8)
+    total = outputs["train"]["images"].shape[0] + outputs["test"]["images"].shape[0]
+    assert total == 12
+    assert outputs["train"]["labels"].dtype == torch.long
+
+
+def test_image_folder_loader_codegen_emits_load_and_split():
+    node = _load_node_module("data/image_folder_loader")
+    lines = node.codegen(
+        {},
+        {"directory": "/data/pics", "image_size": 8, "test_size": 0.5, "random_state": 42},
+        {"train": "n1_train", "test": "n1_test"},
+    )
+    assert lines == [
+        "n1_train_transform = torchvision.transforms.Compose("
+        "[torchvision.transforms.Resize((8, 8)), torchvision.transforms.ToTensor()])",
+        "n1_train_ds = torchvision.datasets.ImageFolder("
+        "'/data/pics', transform=n1_train_transform)",
+        "n1_train_images_all = torch.stack("
+        "[n1_train_ds[i][0] for i in range(len(n1_train_ds))])",
+        "n1_train_labels_all = torch.tensor("
+        "[n1_train_ds[i][1] for i in range(len(n1_train_ds))], dtype=torch.long)",
+        "n1_train_indices = list(range(len(n1_train_ds)))",
+        "n1_train_idx, n1_test_idx = train_test_split("
+        "n1_train_indices, test_size=0.5, random_state=42)",
+        "n1_train_images = n1_train_images_all[n1_train_idx]",
+        "n1_train_labels = n1_train_labels_all[n1_train_idx]",
+        "n1_test_images = n1_train_images_all[n1_test_idx]",
+        "n1_test_labels = n1_train_labels_all[n1_test_idx]",
+    ]
