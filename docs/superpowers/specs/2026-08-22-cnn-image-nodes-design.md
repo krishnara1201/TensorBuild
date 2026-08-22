@@ -62,6 +62,14 @@ one additive key on the existing `Layer` runtime dict.
   desktop tool aimed at MNIST-sized data and modest folders.
 - Excel/Parquet/SQL data loaders, non-image built-in datasets — unrelated
   to this milestone.
+- Batched validation inference — `train_image_classifier`'s validation
+  pass runs the full test split through the model in one forward call
+  (mirroring `pytorch_models.train`'s tabular precedent). This is fine
+  for MNIST/FashionMNIST-sized test splits, but a CIFAR-10 default-params
+  run can peak at several GB of transient memory. Revisit (batch the
+  validation loop, weighting loss by batch length, mirrored in codegen)
+  if this becomes a real problem — deliberately deferred here rather than
+  risking a same-wave equivalence-sensitive training-loop change.
 
 ## New dependency
 
@@ -201,10 +209,13 @@ New nodes all live under existing categories: `Data`, `Preprocessing`,
   DataFrame columns. Marked `long_running: true` — reuses the existing
   WS progress path (`{"event": "progress", "epoch", "loss", "val_loss"}`)
   and `TrainingMonitor` UI with zero frontend changes.
-- Output `model["estimator"]` reuses the same `_TorchPredictAdapter`
-  pattern `pytorch_models.train` already emits via `IMPORTS`, so the
-  three existing evaluation nodes (`evaluate_classifier`, `confusion_matrix`,
-  etc.) work against it with zero changes — same as sub-project 1.
+- `metrics` includes `final_train_loss`, `final_val_loss`, and
+  `final_val_accuracy` (all native Python `float`s) computed directly
+  inside `execute()`/`codegen()` — unlike sub-project 1, the existing
+  `evaluate_classifier`/`confusion_matrix` nodes don't apply here (they
+  require a `Table` test set with `model["feature_columns"]`, which the
+  image path never produces), so `train_image_classifier` reports its own
+  final accuracy rather than relying on a downstream eval node.
 - Kept as a separate node from `pytorch_models.train` (not a widened
   version of it) for the same port-type-exactness reason as `image_input`
   — `train_table`/`test_table` are `Table`-typed, `train_images`/
