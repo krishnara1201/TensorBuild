@@ -315,3 +315,49 @@ describe('PipelineCanvas port/edge coloring', () => {
     expect(edgePath?.style.stroke).toBe('rgb(74, 144, 217)')
   })
 })
+
+describe('PipelineCanvas ImageBatch port coloring', () => {
+  it('colors an ImageBatch port handle distinctly from Table/Layer', () => {
+    const loaderManifest: NodeManifest = {
+      id: 'data.built_in_image_dataset',
+      category: 'Data',
+      label: 'Built-in Image Dataset',
+      inputs: [],
+      outputs: [
+        { name: 'train', type: 'ImageBatch' },
+        { name: 'test', type: 'ImageBatch' },
+      ],
+      params: [],
+      long_running: false,
+    }
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [loaderManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: loaderManifest, params: {} },
+    }
+
+    const { container } = render(
+      <PipelineCanvas
+        nodes={[node]}
+        edges={[]}
+        onNodesChange={noop}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+      />,
+    )
+
+    const handles = container.querySelectorAll<HTMLElement>('.react-flow__handle')
+    expect(handles).toHaveLength(2)
+    expect(handles[0]?.style.background).toBe('rgb(231, 76, 60)')
+    expect(handles[0]?.style.background).not.toBe('rgb(74, 144, 217)') // not Table
+    expect(handles[0]?.style.background).not.toBe('rgb(155, 89, 182)') // not Layer
+  })
+})

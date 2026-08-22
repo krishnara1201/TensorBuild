@@ -38,6 +38,7 @@ const PORT_TYPE_COLORS: Record<string, string> = {
   Layer: 'rgb(155, 89, 182)',
   Model: 'rgb(46, 204, 113)',
   Metrics: 'rgb(230, 126, 34)',
+  ImageBatch: 'rgb(231, 76, 60)',
 }
 const DEFAULT_PORT_COLOR = 'rgb(136, 136, 136)'
 
