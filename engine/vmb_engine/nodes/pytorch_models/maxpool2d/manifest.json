@@ -1,0 +1,10 @@
+{
+    "id": "pytorch_models.maxpool2d",
+    "category": "Models (PyTorch)",
+    "label": "MaxPool2D",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": [
+        {"name": "pool_size", "type": "number", "label": "Pool Size", "default": 2}
+    ]
+}

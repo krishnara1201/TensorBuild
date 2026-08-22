@@ -437,3 +437,84 @@ def test_conv2d_codegen_emits_conv_append():
         "n2_architecture_shape = (6, n1_architecture_shape[1], n1_architecture_shape[2])",
         "n2_architecture_in_features = None",
     ]
+
+
+def test_batchnorm2d_execute_preserves_shape():
+    batchnorm2d = _load_node_module("pytorch_models/batchnorm2d")
+
+    outputs = batchnorm2d.execute(
+        {"architecture": {"modules": [], "in_features": None, "shape": (6, 8, 8)}}, {}
+    )
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["modules"][0].num_features == 6
+    assert architecture["shape"] == (6, 8, 8)
+
+
+def test_batchnorm2d_execute_raises_without_spatial_shape():
+    batchnorm2d = _load_node_module("pytorch_models/batchnorm2d")
+
+    try:
+        batchnorm2d.execute(
+            {"architecture": {"modules": [], "in_features": 8, "shape": None}}, {}
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "spatial shape" in str(exc)
+
+
+def test_batchnorm2d_codegen_emits_batchnorm_append():
+    batchnorm2d = _load_node_module("pytorch_models/batchnorm2d")
+    lines = batchnorm2d.codegen(
+        {"architecture": "n1_architecture"}, {}, {"architecture": "n2_architecture"}
+    )
+    assert lines == [
+        "assert n1_architecture_shape is not None, "
+        "'BatchNorm2D requires a spatial shape; insert after Image Input, another "
+        "Conv2D/BatchNorm2D/MaxPool2D — not after Flatten/Linear'",
+        "n2_architecture = n1_architecture + [nn.BatchNorm2d(n1_architecture_shape[0])]",
+        "n2_architecture_shape = n1_architecture_shape",
+        "n2_architecture_in_features = None",
+    ]
+
+
+def test_maxpool2d_execute_halves_spatial_dims():
+    maxpool2d = _load_node_module("pytorch_models/maxpool2d")
+
+    outputs = maxpool2d.execute(
+        {"architecture": {"modules": [], "in_features": None, "shape": (6, 8, 8)}},
+        {"pool_size": 2},
+    )
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["shape"] == (6, 4, 4)
+
+
+def test_maxpool2d_execute_raises_without_spatial_shape():
+    maxpool2d = _load_node_module("pytorch_models/maxpool2d")
+
+    try:
+        maxpool2d.execute(
+            {"architecture": {"modules": [], "in_features": 8, "shape": None}}, {"pool_size": 2}
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "spatial shape" in str(exc)
+
+
+def test_maxpool2d_codegen_emits_pool_append():
+    maxpool2d = _load_node_module("pytorch_models/maxpool2d")
+    lines = maxpool2d.codegen(
+        {"architecture": "n1_architecture"}, {"pool_size": 2}, {"architecture": "n2_architecture"}
+    )
+    assert lines == [
+        "assert n1_architecture_shape is not None, "
+        "'MaxPool2D requires a spatial shape; insert after Image Input, another "
+        "Conv2D/BatchNorm2D/MaxPool2D — not after Flatten/Linear'",
+        "n2_architecture = n1_architecture + [nn.MaxPool2d(2)]",
+        "n2_architecture_shape = (n1_architecture_shape[0], "
+        "n1_architecture_shape[1] // 2, n1_architecture_shape[2] // 2)",
+        "n2_architecture_in_features = None",
+    ]

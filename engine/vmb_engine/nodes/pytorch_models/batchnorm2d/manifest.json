@@ -1,0 +1,8 @@
+{
+    "id": "pytorch_models.batchnorm2d",
+    "category": "Models (PyTorch)",
+    "label": "BatchNorm2D",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": []
+}
