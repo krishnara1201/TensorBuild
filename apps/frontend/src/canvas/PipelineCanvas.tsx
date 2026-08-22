@@ -63,12 +63,24 @@ function SourcePort({ port, top }: { port: Port; top: number }) {
   )
 }
 
-function PipelineNodeRenderer({ data }: NodeProps<PipelineNode>) {
+function PipelineNodeRenderer({ id, data }: NodeProps<PipelineNode>) {
   const { manifest } = data as PipelineNodeData
+  const { deleteElements } = useReactFlow()
   const portRows = Math.max(manifest.inputs.length, manifest.outputs.length, 1)
   const minHeight = PORT_TOP_OFFSET + portRows * PORT_ROW_HEIGHT + NODE_MIN_HEIGHT_PADDING
   return (
     <div className="pipeline-node" style={{ minHeight }}>
+      <button
+        type="button"
+        aria-label="Delete node"
+        className="node-delete-button nodrag nopan"
+        onClick={(event) => {
+          event.stopPropagation()
+          void deleteElements({ nodes: [{ id }] })
+        }}
+      >
+        ×
+      </button>
       <div>{manifest.label}</div>
       {manifest.inputs.map((port, index) => (
         <TargetPort key={port.name} port={port} top={PORT_TOP_OFFSET + index * PORT_ROW_HEIGHT} />

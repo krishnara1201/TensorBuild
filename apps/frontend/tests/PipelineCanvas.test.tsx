@@ -136,4 +136,43 @@ describe('PipelineCanvas', () => {
       expect.arrayContaining([expect.objectContaining({ type: 'remove', id: 'e1' })]),
     )
   })
+
+  it('shows a delete button on a node that removes it via onNodesChange', async () => {
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [csvManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+    const existingNode: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+      // React Flow renders a node visibility:hidden (excluded from the
+      // accessibility tree, so findByRole can't see it) until it has
+      // measured dimensions; jsdom never reports layout, so supply it
+      // directly, matching the edge test above.
+      measured: { width: 140, height: 56 },
+    }
+
+    const onNodesChange = vi.fn()
+    render(
+      <PipelineCanvas
+        nodes={[existingNode]}
+        edges={[]}
+        onNodesChange={onNodesChange}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+      />,
+    )
+
+    const deleteButton = await screen.findByRole('button', { name: /delete node/i })
+    await userEvent.click(deleteButton)
+
+    expect(onNodesChange).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ type: 'remove', id: 'n1' })]),
+    )
+  })
 })
