@@ -1,0 +1,11 @@
+{
+    "id": "pytorch_models.input",
+    "category": "Models (PyTorch)",
+    "label": "Input",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""},
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}
