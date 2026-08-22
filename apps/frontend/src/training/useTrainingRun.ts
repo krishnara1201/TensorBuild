@@ -34,40 +34,53 @@ export function useTrainingRun(runId: string | null): TrainingState {
     }
 
     let active = true
-    const socket = new WebSocket(getRunSocketUrl(runId))
+    let socket: WebSocket | null = null
 
-    socket.onopen = () => {
+    // Defer the actual connection past the synchronous portion of the
+    // effect. React StrictMode double-invokes effects synchronously
+    // (mount -> cleanup -> mount) before any timer fires, so this lets the
+    // cleanup from the first (throwaway) mount cancel the timer and avoid
+    // ever opening a real socket for it — otherwise the engine's
+    // RunManager can tear down the run's queue when that first socket
+    // disconnects, before the second socket gets a chance to read from it.
+    const timer = setTimeout(() => {
       if (!active) return
-      setState((prev) => (isTerminal(prev.status) ? prev : { status: 'running', history: prev.history }))
-    }
+      socket = new WebSocket(getRunSocketUrl(runId))
 
-    socket.onmessage = (message) => {
-      if (!active) return
-      const data = JSON.parse(message.data as string) as IncomingEvent
-      setState((prev) => {
-        if (isTerminal(prev.status)) return prev
-        if (data.event === 'progress') {
-          return { status: 'running', history: [...prev.history, data] }
-        }
-        if (data.event === 'complete') {
-          return { status: 'complete', history: prev.history, metrics: data.metrics }
-        }
-        return { status: 'error', history: prev.history, error: data.error }
-      })
-    }
+      socket.onopen = () => {
+        if (!active) return
+        setState((prev) => (isTerminal(prev.status) ? prev : { status: 'running', history: prev.history }))
+      }
 
-    const handleDisconnect = () => {
-      if (!active) return
-      setState((prev) =>
-        isTerminal(prev.status) ? prev : { status: 'error', history: prev.history, error: 'connection lost' },
-      )
-    }
-    socket.onerror = handleDisconnect
-    socket.onclose = handleDisconnect
+      socket.onmessage = (message) => {
+        if (!active) return
+        const data = JSON.parse(message.data as string) as IncomingEvent
+        setState((prev) => {
+          if (isTerminal(prev.status)) return prev
+          if (data.event === 'progress') {
+            return { status: 'running', history: [...prev.history, data] }
+          }
+          if (data.event === 'complete') {
+            return { status: 'complete', history: prev.history, metrics: data.metrics }
+          }
+          return { status: 'error', history: prev.history, error: data.error }
+        })
+      }
+
+      const handleDisconnect = () => {
+        if (!active) return
+        setState((prev) =>
+          isTerminal(prev.status) ? prev : { status: 'error', history: prev.history, error: 'connection lost' },
+        )
+      }
+      socket.onerror = handleDisconnect
+      socket.onclose = handleDisconnect
+    }, 0)
 
     return () => {
       active = false
-      socket.close()
+      clearTimeout(timer)
+      socket?.close()
     }
   }, [runId])
 
