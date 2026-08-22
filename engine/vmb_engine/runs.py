@@ -33,7 +33,8 @@ class RunManager:
                 context = await asyncio.to_thread(
                     execute_pipeline, ir, registry, progress_callback
                 )
-            except ExecutorError:
+            except ExecutorError as exc:
+                await queue.put({"event": "node_error", "error": str(exc)})
                 return
             metrics = collect_metrics_outputs(ir, registry, context)
             await queue.put({"event": "complete", "metrics": metrics})
