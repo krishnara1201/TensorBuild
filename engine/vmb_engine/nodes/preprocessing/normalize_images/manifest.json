@@ -1,0 +1,14 @@
+{
+    "id": "preprocessing.normalize_images",
+    "category": "Preprocessing",
+    "label": "Normalize Images",
+    "inputs": [
+        {"name": "train_images", "type": "ImageBatch"},
+        {"name": "test_images", "type": "ImageBatch"}
+    ],
+    "outputs": [
+        {"name": "train", "type": "ImageBatch"},
+        {"name": "test", "type": "ImageBatch"}
+    ],
+    "params": []
+}
