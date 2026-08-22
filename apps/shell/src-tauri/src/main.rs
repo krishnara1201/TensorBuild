@@ -25,6 +25,7 @@ fn main() {
     }
 
     let build_result = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(EnginePort(port))
         .manage(EngineProcess(child.clone()))
         .invoke_handler(tauri::generate_handler![engine_base_url])
