@@ -148,10 +148,15 @@ node, check this test still passes before trusting either path in isolation.
 `vmb_engine/api.py`'s `create_app(node_paths=...)` builds a FastAPI app
 exposing `GET /nodes`, `POST /pipeline/run`, `POST /pipeline/codegen` over
 the registry/executor/codegen above; `ExecutorError`/`RegistryError` map to
-422 responses. No WebSocket/async execution exists yet — all current nodes
-are synchronous. That's deferred to the plan that adds PyTorch training
-nodes (manifests may set `"long_running": true` for those, per the parent
-spec, but nothing consumes that flag yet).
+422 responses. A pipeline containing a `"long_running": true` node (the
+`pytorch_models.train` node, and any future ones with the same flag) is
+executed differently: `POST /pipeline/run` returns `202 {"run_id": ...}`
+immediately instead of blocking, `RunManager` (`vmb_engine/runs.py`) runs
+the pipeline in a background task and fans its `progress_callback` events
+into a per-run `asyncio.Queue`, and `GET /ws/runs/{run_id}` streams that
+queue over a WebSocket until a `"complete"`/`"node_error"` event arrives.
+Pipelines with no long-running node are unaffected and still execute
+synchronously inline on the request.
 
 ## Development workflow
 

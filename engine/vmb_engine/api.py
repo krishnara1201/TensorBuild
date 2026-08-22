@@ -1,9 +1,11 @@
 import asyncio
+import contextlib
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.websockets import WebSocketDisconnect
 
 from vmb_engine.codegen import generate_code
 from vmb_engine.executor import (
@@ -14,7 +16,7 @@ from vmb_engine.executor import (
 )
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry, RegistryError
-from vmb_engine.runs import RunManager
+from vmb_engine.runs import RunManager, RunNotFoundError
 
 DEFAULT_NODES_DIR = Path(__file__).resolve().parent / "nodes"
 
@@ -58,8 +60,19 @@ def create_app(node_paths: list[Path] | None = None) -> FastAPI:
     @app.websocket("/ws/runs/{run_id}")
     async def stream_run_events(websocket: WebSocket, run_id: str):
         await websocket.accept()
-        async for event in run_manager.stream(run_id):
-            await websocket.send_json(event)
+        try:
+            # aclosing (not a bare `async for`) guarantees RunManager.stream()'s
+            # `finally` runs — and so its queue cleanup — even if the client
+            # disconnects mid-stream and send_json raises before a terminal
+            # event is reached.
+            async with contextlib.aclosing(run_manager.stream(run_id)) as events:
+                async for event in events:
+                    await websocket.send_json(event)
+        except RunNotFoundError:
+            await websocket.close(code=1008, reason="unknown run_id")
+            return
+        except WebSocketDisconnect:
+            return
         await websocket.close()
 
     @app.post("/pipeline/codegen")

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from vmb_engine.api import create_app
 
@@ -178,3 +179,11 @@ def test_ws_run_events_streams_node_error(client, tmp_path):
 
     assert event["event"] == "node_error"
     assert event["node_id"] == "n1"
+
+
+def test_ws_run_events_unknown_run_id_closes_with_policy_violation(client):
+    with client.websocket_connect("/ws/runs/does-not-exist") as ws:
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            ws.receive_json()
+
+    assert exc_info.value.code == 1008
