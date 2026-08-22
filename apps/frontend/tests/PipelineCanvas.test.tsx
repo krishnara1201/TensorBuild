@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Position } from '@xyflow/react'
-import { PipelineCanvas } from '../src/canvas/PipelineCanvas'
+import { PipelineCanvas, outputPortTypeForConnection } from '../src/canvas/PipelineCanvas'
 import * as client from '../src/api/client'
 import type { PipelineEdge, PipelineNode } from '../src/canvas/types'
 import type { NodeManifest } from '../src/api/types'
@@ -174,5 +174,144 @@ describe('PipelineCanvas', () => {
     expect(onNodesChange).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ type: 'remove', id: 'n1' })]),
     )
+  })
+})
+
+describe('outputPortTypeForConnection', () => {
+  it('returns the type of the source node output port referenced by the connection', () => {
+    const inputManifest: NodeManifest = {
+      id: 'pytorch_models.input',
+      category: 'Models (PyTorch)',
+      label: 'Input',
+      inputs: [{ name: 'train_table', type: 'Table' }],
+      outputs: [{ name: 'architecture', type: 'Layer' }],
+      params: [],
+      long_running: false,
+    }
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: inputManifest, params: {} },
+    }
+
+    const result = outputPortTypeForConnection(
+      { source: 'n1', sourceHandle: 'architecture', target: 'n2', targetHandle: 'architecture' },
+      [node],
+    )
+
+    expect(result).toBe('Layer')
+  })
+
+  it('returns undefined when the source node or port is not found', () => {
+    const result = outputPortTypeForConnection(
+      { source: 'missing', sourceHandle: 'x', target: 'n2', targetHandle: 'y' },
+      [],
+    )
+
+    expect(result).toBeUndefined()
+  })
+})
+
+describe('PipelineCanvas port/edge coloring', () => {
+  it('colors a port handle by its port type', () => {
+    const inputManifest: NodeManifest = {
+      id: 'pytorch_models.input',
+      category: 'Models (PyTorch)',
+      label: 'Input',
+      inputs: [{ name: 'train_table', type: 'Table' }],
+      outputs: [{ name: 'architecture', type: 'Layer' }],
+      params: [],
+      long_running: false,
+    }
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [inputManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: inputManifest, params: {} },
+    }
+
+    const { container } = render(
+      <PipelineCanvas
+        nodes={[node]}
+        edges={[]}
+        onNodesChange={noop}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+      />,
+    )
+
+    const handles = container.querySelectorAll<HTMLElement>('.react-flow__handle')
+    expect(handles).toHaveLength(2)
+    expect(handles[0]?.style.background).toBe('rgb(74, 144, 217)') // Table (target: train_table)
+    expect(handles[1]?.style.background).toBe('rgb(155, 89, 182)') // Layer (source: architecture)
+  })
+
+  it('colors an edge by the source port type stashed in edge.data', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 140,
+      height: 56,
+      top: 0,
+      left: 0,
+      right: 140,
+      bottom: 56,
+      toJSON: () => {},
+    })
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [csvManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+
+    const nodeA: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+      measured: { width: 140, height: 56 },
+      handles: [{ id: 'table', type: 'source', position: Position.Right, x: 140, y: 24, width: 1, height: 1 }],
+    }
+    const nodeB: PipelineNode = {
+      id: 'n2',
+      type: 'pipelineNode',
+      position: { x: 200, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+      measured: { width: 140, height: 56 },
+      handles: [{ id: 'table', type: 'target', position: Position.Left, x: 0, y: 24, width: 1, height: 1 }],
+    }
+    const edge: PipelineEdge = {
+      id: 'e1',
+      source: 'n1',
+      target: 'n2',
+      sourceHandle: 'table',
+      targetHandle: 'table',
+      data: { portType: 'Table' },
+    }
+
+    const { container } = render(
+      <PipelineCanvas
+        nodes={[nodeA, nodeB]}
+        edges={[edge]}
+        onNodesChange={noop}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+      />,
+    )
+
+    await screen.findByRole('button', { name: /delete connection/i })
+
+    const edgePath = container.querySelector<SVGPathElement>('.react-flow__edge-path')
+    expect(edgePath?.style.stroke).toBe('rgb(74, 144, 217)')
   })
 })

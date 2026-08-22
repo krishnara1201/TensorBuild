@@ -28,6 +28,32 @@ const PORT_TOP_OFFSET = 32
 const PORT_ROW_HEIGHT = 16
 const NODE_MIN_HEIGHT_PADDING = 16
 
+// Per-port-type accent color, shared by handles and the edges connecting
+// them, so a pipeline's data-vs-layer-vs-model wiring is visually
+// distinguishable at a glance. rgb() (not hex) so the color read back off
+// the DOM in tests matches exactly what was set, independent of any
+// hex-to-rgb normalization jsdom's style engine may or may not do.
+const PORT_TYPE_COLORS: Record<string, string> = {
+  Table: 'rgb(74, 144, 217)',
+  Layer: 'rgb(155, 89, 182)',
+  Model: 'rgb(46, 204, 113)',
+  Metrics: 'rgb(230, 126, 34)',
+}
+const DEFAULT_PORT_COLOR = 'rgb(136, 136, 136)'
+
+function colorForPortType(portType: string | undefined): string {
+  if (!portType) return DEFAULT_PORT_COLOR
+  return PORT_TYPE_COLORS[portType] ?? DEFAULT_PORT_COLOR
+}
+
+export function outputPortTypeForConnection(
+  connection: Connection,
+  nodes: PipelineNode[],
+): string | undefined {
+  const sourceNode = nodes.find((node) => node.id === connection.source)
+  return sourceNode?.data.manifest.outputs.find((port) => port.name === connection.sourceHandle)?.type
+}
+
 // An input port should only ever hold one incoming edge — the executor
 // (engine/vmb_engine/executor.py) overwrites context[port] per edge, so a
 // second connection to the same target port silently drops the first with
@@ -43,7 +69,7 @@ function TargetPort({ port, top }: { port: Port; top: number }) {
         type="target"
         position={Position.Left}
         isConnectableEnd={connections.length === 0}
-        style={{ top }}
+        style={{ top, background: colorForPortType(port.type) }}
       />
       <span className="pipeline-node-port-label pipeline-node-port-label-target" style={{ top }}>
         {port.name}
@@ -55,7 +81,12 @@ function TargetPort({ port, top }: { port: Port; top: number }) {
 function SourcePort({ port, top }: { port: Port; top: number }) {
   return (
     <>
-      <Handle id={port.name} type="source" position={Position.Right} style={{ top }} />
+      <Handle
+        id={port.name}
+        type="source"
+        position={Position.Right}
+        style={{ top, background: colorForPortType(port.type) }}
+      />
       <span className="pipeline-node-port-label pipeline-node-port-label-source" style={{ top }}>
         {port.name}
       </span>
@@ -102,6 +133,7 @@ function DeleteableEdge({
   targetPosition,
   markerEnd,
   style,
+  data,
 }: EdgeProps) {
   const { deleteElements } = useReactFlow()
   const [edgePath, labelX, labelY] = getBezierPath({
@@ -112,10 +144,16 @@ function DeleteableEdge({
     targetY,
     targetPosition,
   })
+  const portType = typeof data?.portType === 'string' ? data.portType : undefined
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{ ...style, stroke: colorForPortType(portType) }}
+      />
       <EdgeLabelRenderer>
         <button
           type="button"
@@ -166,9 +204,16 @@ function PipelineCanvasInner({
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) => addEdge(connection, eds))
+      const portType = outputPortTypeForConnection(connection, nodes)
+      setEdges((eds) => {
+        const nextEdges = addEdge(connection, eds)
+        const newEdge = nextEdges[nextEdges.length - 1]
+        return nextEdges.map((edge) =>
+          edge === newEdge ? { ...edge, data: { ...edge.data, portType } } : edge,
+        )
+      })
     },
-    [setEdges],
+    [nodes, setEdges],
   )
 
   const handleDrop = useCallback(
