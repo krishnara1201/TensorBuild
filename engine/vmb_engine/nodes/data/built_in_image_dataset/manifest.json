@@ -1,0 +1,20 @@
+{
+    "id": "data.built_in_image_dataset",
+    "category": "Data",
+    "label": "Built-in Image Dataset",
+    "inputs": [],
+    "outputs": [
+        {"name": "train", "type": "ImageBatch"},
+        {"name": "test", "type": "ImageBatch"}
+    ],
+    "params": [
+        {
+            "name": "dataset",
+            "type": "select",
+            "label": "Dataset",
+            "default": "MNIST",
+            "options": ["MNIST", "FashionMNIST", "CIFAR-10"]
+        },
+        {"name": "data_dir", "type": "text", "label": "Data Directory", "default": "./data"}
+    ]
+}
