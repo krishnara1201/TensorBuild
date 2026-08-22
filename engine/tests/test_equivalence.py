@@ -417,3 +417,87 @@ def test_executor_and_exported_script_agree_with_mlp_regression_pipeline(tmp_pat
     script_r2 = float(match.group(1))
 
     assert executor_r2 == pytest.approx(script_r2, abs=1e-6)
+
+
+def test_executor_and_exported_script_agree_with_cnn_pipeline(tmp_path, registry):
+    from PIL import Image
+
+    data_dir = tmp_path / "images"
+    for class_name, shade in (("cat", 50), ("dog", 200)):
+        class_dir = data_dir / class_name
+        class_dir.mkdir(parents=True)
+        for i in range(10):
+            Image.new("RGB", (16, 16), color=(shade, shade, shade)).save(class_dir / f"{i}.png")
+
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {
+                    "id": "n1",
+                    "type": "data.image_folder_loader",
+                    "params": {
+                        "directory": str(data_dir),
+                        "image_size": 16,
+                        "test_size": 0.3,
+                        "random_state": 42,
+                    },
+                },
+                {"id": "n2", "type": "preprocessing.normalize_images", "params": {}},
+                {"id": "n3", "type": "pytorch_models.image_input", "params": {"random_state": 42}},
+                {
+                    "id": "n4",
+                    "type": "pytorch_models.conv2d",
+                    "params": {"out_channels": 4, "kernel_size": 3},
+                },
+                {"id": "n5", "type": "pytorch_models.relu", "params": {}},
+                {"id": "n6", "type": "pytorch_models.maxpool2d", "params": {"pool_size": 2}},
+                {"id": "n7", "type": "pytorch_models.flatten", "params": {}},
+                {"id": "n8", "type": "pytorch_models.linear", "params": {"out_features": 2}},
+                {
+                    "id": "n9",
+                    "type": "pytorch_models.train_image_classifier",
+                    "params": {
+                        "loss_fn": "CrossEntropyLoss",
+                        "optimizer": "Adam",
+                        "learning_rate": 0.01,
+                        "epochs": 2,
+                        "batch_size": 4,
+                    },
+                },
+            ],
+            "edges": [
+                {"from": "n1.train", "to": "n2.train_images"},
+                {"from": "n1.test", "to": "n2.test_images"},
+                {"from": "n2.train", "to": "n3.train_images"},
+                {"from": "n3.architecture", "to": "n4.architecture"},
+                {"from": "n4.architecture", "to": "n5.architecture"},
+                {"from": "n5.architecture", "to": "n6.architecture"},
+                {"from": "n6.architecture", "to": "n7.architecture"},
+                {"from": "n7.architecture", "to": "n8.architecture"},
+                {"from": "n2.train", "to": "n9.train_images"},
+                {"from": "n2.test", "to": "n9.test_images"},
+                {"from": "n8.architecture", "to": "n9.architecture"},
+            ],
+        }
+    )
+
+    context = execute_pipeline(ir, registry)
+    executor_accuracy = context["n9.metrics"]["final_val_accuracy"]
+
+    code = generate_code(ir, registry)
+    script_path = tmp_path / "exported_cnn.py"
+    script_path.write_text(code)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    match = re.search(r"'final_val_accuracy':\s*([0-9.eE+-]+)", result.stdout)
+    assert match is not None, f"no final_val_accuracy found in script output:\n{result.stdout}"
+    script_accuracy = float(match.group(1))
+
+    assert executor_accuracy == pytest.approx(script_accuracy, abs=1e-6)
