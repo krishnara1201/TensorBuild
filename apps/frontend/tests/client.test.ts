@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getCode, getNodes, runPipeline, resolveBaseUrl } from '../src/api/client'
+import { getCode, getNodes, getRunSocketUrl, runPipeline, resolveBaseUrl } from '../src/api/client'
 import type { NodeManifest, PipelineIR } from '../src/api/types'
 import { invoke } from '@tauri-apps/api/core'
 
@@ -43,10 +43,11 @@ describe('api/client', () => {
     await expect(getNodes()).rejects.toThrow('GET /nodes failed: 500')
   })
 
-  it('runPipeline POSTs the IR and returns metrics', async () => {
+  it('runPipeline POSTs the IR and returns a sync outcome on 200', async () => {
     const ir: PipelineIR = { nodes: [], edges: [] }
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
+      status: 200,
       json: async () => ({ metrics: { 'n4.metrics': { accuracy: 0.9 } } }),
     } as Response)
 
@@ -57,7 +58,20 @@ describe('api/client', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(ir),
     })
-    expect(result).toEqual({ metrics: { 'n4.metrics': { accuracy: 0.9 } } })
+    expect(result).toEqual({ kind: 'sync', metrics: { 'n4.metrics': { accuracy: 0.9 } } })
+  })
+
+  it('runPipeline returns an async outcome with the run_id on 202', async () => {
+    const ir: PipelineIR = { nodes: [], edges: [] }
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 202,
+      json: async () => ({ run_id: 'run-abc-123' }),
+    } as Response)
+
+    const result = await runPipeline(ir)
+
+    expect(result).toEqual({ kind: 'async', runId: 'run-abc-123' })
   })
 
   it('runPipeline throws the engine detail message on a 422', async () => {
@@ -86,6 +100,10 @@ describe('api/client', () => {
       body: JSON.stringify(ir),
     })
     expect(result).toEqual({ code: 'print(1)' })
+  })
+
+  it('getRunSocketUrl swaps the http(s) scheme for ws(s)', () => {
+    expect(getRunSocketUrl('run-1')).toBe('ws://127.0.0.1:8000/ws/runs/run-1')
   })
 })
 

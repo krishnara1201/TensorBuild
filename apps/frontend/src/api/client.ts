@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import type { CodegenResult, NodeManifest, PipelineIR, RunResult } from './types'
+import type { CodegenResult, NodeManifest, PipelineIR, RunOutcome } from './types'
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8000'
 let baseUrl = DEFAULT_BASE_URL
@@ -22,7 +22,7 @@ export async function getNodes(): Promise<NodeManifest[]> {
   return response.json()
 }
 
-async function postPipeline<T>(path: string, ir: PipelineIR): Promise<T> {
+async function postPipeline(path: string, ir: PipelineIR): Promise<{ status: number; body: unknown }> {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -34,15 +34,24 @@ async function postPipeline<T>(path: string, ir: PipelineIR): Promise<T> {
       body && typeof body.detail === 'string' ? body.detail : `${path} failed: ${response.status}`
     throw new Error(detail)
   }
-  return response.json()
+  return { status: response.status, body: await response.json() }
 }
 
-export function runPipeline(ir: PipelineIR): Promise<RunResult> {
-  return postPipeline<RunResult>('/pipeline/run', ir)
+export async function runPipeline(ir: PipelineIR): Promise<RunOutcome> {
+  const { status, body } = await postPipeline('/pipeline/run', ir)
+  if (status === 202) {
+    return { kind: 'async', runId: (body as { run_id: string }).run_id }
+  }
+  return { kind: 'sync', metrics: (body as { metrics: Record<string, unknown> }).metrics }
 }
 
-export function getCode(ir: PipelineIR): Promise<CodegenResult> {
-  return postPipeline<CodegenResult>('/pipeline/codegen', ir)
+export async function getCode(ir: PipelineIR): Promise<CodegenResult> {
+  const { body } = await postPipeline('/pipeline/codegen', ir)
+  return body as CodegenResult
+}
+
+export function getRunSocketUrl(runId: string): string {
+  return `${baseUrl.replace(/^http/, 'ws')}/ws/runs/${runId}`
 }
 
 export function useNodes() {

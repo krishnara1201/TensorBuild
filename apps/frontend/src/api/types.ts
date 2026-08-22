@@ -42,9 +42,9 @@ export interface PipelineIR {
   edges: EdgeSpec[]
 }
 
-export interface RunResult {
-  metrics: Record<string, unknown>
-}
+export type RunOutcome =
+  | { kind: 'sync'; metrics: Record<string, unknown> }
+  | { kind: 'async'; runId: string }
 
 export interface CodegenResult {
   code: string
