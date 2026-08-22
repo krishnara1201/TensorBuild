@@ -50,3 +50,30 @@ def test_input_codegen_emits_seed_and_empty_architecture():
         "n2_architecture_in_features = len([c for c in n1_table.columns if c != 'label'])",
         "n2_architecture = []",
     ]
+
+
+def test_linear_execute_appends_layer_and_updates_in_features():
+    linear = _load_node_module("pytorch_models/linear")
+
+    outputs = linear.execute(
+        {"architecture": {"modules": [], "in_features": 2}}, {"out_features": 8}
+    )
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["modules"][0].in_features == 2
+    assert architecture["modules"][0].out_features == 8
+    assert architecture["in_features"] == 8
+
+
+def test_linear_codegen_emits_layer_append():
+    linear = _load_node_module("pytorch_models/linear")
+    lines = linear.codegen(
+        {"architecture": "n1_architecture"},
+        {"out_features": 8},
+        {"architecture": "n2_architecture"},
+    )
+    assert lines == [
+        "n2_architecture = n1_architecture + [nn.Linear(n1_architecture_in_features, 8)]",
+        "n2_architecture_in_features = 8",
+    ]

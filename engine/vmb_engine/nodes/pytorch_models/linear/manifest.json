@@ -1,0 +1,10 @@
+{
+    "id": "pytorch_models.linear",
+    "category": "Models (PyTorch)",
+    "label": "Linear",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": [
+        {"name": "out_features", "type": "number", "label": "Output Features", "default": 64}
+    ]
+}
