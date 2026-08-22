@@ -263,3 +263,80 @@ def test_executor_and_exported_script_agree_with_clean_data_node(tmp_path, regis
     script_accuracy = float(match.group(1))
 
     assert executor_accuracy == pytest.approx(script_accuracy, abs=1e-9)
+
+
+def test_executor_and_exported_script_agree_with_mlp_pipeline(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,b,label\n" + "\n".join(f"{i},{i * 2},{i % 2}" for i in range(60)))
+
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+                {
+                    "id": "n3",
+                    "type": "pytorch_models.input",
+                    "params": {"target_column": "label", "random_state": 42},
+                },
+                {"id": "n4", "type": "pytorch_models.linear", "params": {"out_features": 8}},
+                {"id": "n5", "type": "pytorch_models.relu", "params": {}},
+                {"id": "n6", "type": "pytorch_models.linear", "params": {"out_features": 2}},
+                {
+                    "id": "n7",
+                    "type": "pytorch_models.train",
+                    "params": {
+                        "target_column": "label",
+                        "task_type": "classification",
+                        "loss_fn": "CrossEntropyLoss",
+                        "optimizer": "Adam",
+                        "learning_rate": 0.01,
+                        "epochs": 3,
+                        "batch_size": 16,
+                    },
+                },
+                {
+                    "id": "n8",
+                    "type": "evaluation.evaluate_classifier",
+                    "params": {"target_column": "label"},
+                },
+            ],
+            "edges": [
+                {"from": "n1.table", "to": "n2.table"},
+                {"from": "n2.train", "to": "n3.train_table"},
+                {"from": "n3.architecture", "to": "n4.architecture"},
+                {"from": "n4.architecture", "to": "n5.architecture"},
+                {"from": "n5.architecture", "to": "n6.architecture"},
+                {"from": "n2.train", "to": "n7.train_table"},
+                {"from": "n2.test", "to": "n7.test_table"},
+                {"from": "n6.architecture", "to": "n7.architecture"},
+                {"from": "n7.model", "to": "n8.model"},
+                {"from": "n2.test", "to": "n8.test_table"},
+            ],
+        }
+    )
+
+    context = execute_pipeline(ir, registry)
+    executor_accuracy = context["n8.metrics"]["accuracy"]
+
+    code = generate_code(ir, registry)
+    script_path = tmp_path / "exported.py"
+    script_path.write_text(code)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    match = re.search(r"'accuracy':\s*([0-9.]+)", result.stdout)
+    assert match is not None, f"no accuracy found in script output:\n{result.stdout}"
+    script_accuracy = float(match.group(1))
+
+    assert executor_accuracy == pytest.approx(script_accuracy, abs=1e-6)
