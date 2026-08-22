@@ -636,6 +636,8 @@ def test_train_image_classifier_codegen_emits_training_loop():
         {"model": "n6_model", "metrics": "n6_metrics"},
     )
     assert lines == [
+        "assert n5_architecture_in_features is not None, "
+        "'Train Image Classifier requires a flat architecture; insert a Flatten node first'",
         "n6_model_module = nn.Sequential(*n5_architecture)",
         "n6_model_loss_fn = nn.CrossEntropyLoss()",
         "n6_model_optimizer = torch.optim.Adam(n6_model_module.parameters(), lr=0.001)",
@@ -670,3 +672,43 @@ def test_train_image_classifier_codegen_emits_training_loop():
         "'final_val_accuracy': float(n6_model_val_accuracy)}",
         "print(n6_metrics)",
     ]
+
+
+def test_train_image_classifier_execute_raises_without_flat_architecture():
+    train_node = _load_node_module("pytorch_models/train_image_classifier")
+    _, batch = _toy_cnn_architecture()
+    spatial_architecture = {"modules": [], "in_features": None, "shape": (4, 8, 8)}
+
+    try:
+        train_node.execute(
+            {"train_images": batch, "test_images": batch, "architecture": spatial_architecture},
+            {
+                "loss_fn": "CrossEntropyLoss",
+                "optimizer": "Adam",
+                "learning_rate": 0.01,
+                "epochs": 2,
+                "batch_size": 4,
+            },
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "flat architecture" in str(exc)
+
+
+def test_train_image_classifier_codegen_emits_flat_architecture_guard():
+    train_node = _load_node_module("pytorch_models/train_image_classifier")
+    lines = train_node.codegen(
+        {"train_images": "n2_train", "test_images": "n2_test", "architecture": "n5_architecture"},
+        {
+            "loss_fn": "CrossEntropyLoss",
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 5,
+            "batch_size": 16,
+        },
+        {"model": "n6_model", "metrics": "n6_metrics"},
+    )
+    assert lines[0] == (
+        "assert n5_architecture_in_features is not None, "
+        "'Train Image Classifier requires a flat architecture; insert a Flatten node first'"
+    )

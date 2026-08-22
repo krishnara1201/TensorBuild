@@ -1,5 +1,7 @@
 IMPORTS = ["import torch", "import torch.nn as nn"]
 
+_ARCH_ERROR = "Train Image Classifier requires a flat architecture; insert a Flatten node first"
+
 
 def execute(inputs: dict, params: dict, progress_callback=None) -> dict:
     import torch
@@ -10,6 +12,8 @@ def execute(inputs: dict, params: dict, progress_callback=None) -> dict:
     test_images = inputs["test_images"]["images"]
     test_labels = inputs["test_images"]["labels"]
     architecture = inputs["architecture"]
+    if architecture["in_features"] is None:
+        raise ValueError(_ARCH_ERROR)
 
     model = nn.Sequential(*architecture["modules"])
     loss_fn = getattr(nn, params["loss_fn"])()
@@ -72,6 +76,7 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
     batch_size = params["batch_size"]
 
     return [
+        f"assert {arch_in}_in_features is not None, {_ARCH_ERROR!r}",
         f"{model_var}_module = nn.Sequential(*{arch_in})",
         f"{model_var}_loss_fn = nn.{loss_fn}()",
         f"{model_var}_optimizer = torch.optim.{optimizer}({model_var}_module.parameters(), lr={lr})",
