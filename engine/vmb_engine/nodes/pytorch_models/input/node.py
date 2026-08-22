@@ -8,7 +8,7 @@ def execute(inputs: dict, params: dict) -> dict:
     target = params["target_column"]
     df = inputs["train_table"]
     in_features = len([c for c in df.columns if c != target])
-    return {"architecture": {"modules": [], "in_features": in_features}}
+    return {"architecture": {"modules": [], "in_features": in_features, "shape": None}}
 
 
 def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
@@ -19,5 +19,6 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
     return [
         f"torch.manual_seed({random_state})",
         f"{out_var}_in_features = len([c for c in {train_in}.columns if c != {target!r}])",
+        f"{out_var}_shape = None",
         f"{out_var} = []",
     ]

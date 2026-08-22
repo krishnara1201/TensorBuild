@@ -6,7 +6,13 @@ def execute(inputs: dict, params: dict) -> dict:
 
     architecture = inputs["architecture"]
     modules = architecture["modules"] + [nn.Dropout(p=params["p"])]
-    return {"architecture": {"modules": modules, "in_features": architecture["in_features"]}}
+    return {
+        "architecture": {
+            "modules": modules,
+            "in_features": architecture["in_features"],
+            "shape": architecture["shape"],
+        }
+    }
 
 
 def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
@@ -16,4 +22,5 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
     return [
         f"{out_var} = {in_var} + [nn.Dropout(p={p})]",
         f"{out_var}_in_features = {in_var}_in_features",
+        f"{out_var}_shape = {in_var}_shape",
     ]

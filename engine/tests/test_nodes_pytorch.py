@@ -36,6 +36,7 @@ def test_input_execute_computes_in_features():
     architecture = outputs["architecture"]
     assert architecture["modules"] == []
     assert architecture["in_features"] == 2
+    assert architecture["shape"] is None
 
 
 def test_input_codegen_emits_seed_and_empty_architecture():
@@ -48,6 +49,7 @@ def test_input_codegen_emits_seed_and_empty_architecture():
     assert lines == [
         "torch.manual_seed(42)",
         "n2_architecture_in_features = len([c for c in n1_table.columns if c != 'label'])",
+        "n2_architecture_shape = None",
         "n2_architecture = []",
     ]
 
@@ -56,7 +58,7 @@ def test_linear_execute_appends_layer_and_updates_in_features():
     linear = _load_node_module("pytorch_models/linear")
 
     outputs = linear.execute(
-        {"architecture": {"modules": [], "in_features": 2}}, {"out_features": 8}
+        {"architecture": {"modules": [], "in_features": 2, "shape": None}}, {"out_features": 8}
     )
 
     architecture = outputs["architecture"]
@@ -64,6 +66,20 @@ def test_linear_execute_appends_layer_and_updates_in_features():
     assert architecture["modules"][0].in_features == 2
     assert architecture["modules"][0].out_features == 8
     assert architecture["in_features"] == 8
+    assert architecture["shape"] is None
+
+
+def test_linear_execute_raises_when_shape_is_still_spatial():
+    linear = _load_node_module("pytorch_models/linear")
+
+    try:
+        linear.execute(
+            {"architecture": {"modules": [], "in_features": None, "shape": (4, 8, 8)}},
+            {"out_features": 8},
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "Flatten" in str(exc)
 
 
 def test_linear_codegen_emits_layer_append():
@@ -74,19 +90,36 @@ def test_linear_codegen_emits_layer_append():
         {"architecture": "n2_architecture"},
     )
     assert lines == [
+        "assert n1_architecture_in_features is not None, "
+        "'Linear requires a flat shape; insert a Flatten node first'",
         "n2_architecture = n1_architecture + [nn.Linear(n1_architecture_in_features, 8)]",
         "n2_architecture_in_features = 8",
+        "n2_architecture_shape = None",
     ]
 
 
 def test_relu_execute_appends_activation_and_preserves_in_features():
     relu = _load_node_module("pytorch_models/relu")
 
-    outputs = relu.execute({"architecture": {"modules": [], "in_features": 8}}, {})
+    outputs = relu.execute(
+        {"architecture": {"modules": [], "in_features": 8, "shape": None}}, {}
+    )
 
     architecture = outputs["architecture"]
     assert len(architecture["modules"]) == 1
     assert architecture["in_features"] == 8
+    assert architecture["shape"] is None
+
+
+def test_relu_execute_preserves_spatial_shape():
+    relu = _load_node_module("pytorch_models/relu")
+
+    outputs = relu.execute(
+        {"architecture": {"modules": [], "in_features": None, "shape": (4, 8, 8)}}, {}
+    )
+
+    assert outputs["architecture"]["shape"] == (4, 8, 8)
+    assert outputs["architecture"]["in_features"] is None
 
 
 def test_relu_codegen_emits_activation_append():
@@ -97,18 +130,22 @@ def test_relu_codegen_emits_activation_append():
     assert lines == [
         "n3_architecture = n2_architecture + [nn.ReLU()]",
         "n3_architecture_in_features = n2_architecture_in_features",
+        "n3_architecture_shape = n2_architecture_shape",
     ]
 
 
 def test_dropout_execute_appends_dropout_and_preserves_in_features():
     dropout = _load_node_module("pytorch_models/dropout")
 
-    outputs = dropout.execute({"architecture": {"modules": [], "in_features": 8}}, {"p": 0.3})
+    outputs = dropout.execute(
+        {"architecture": {"modules": [], "in_features": 8, "shape": None}}, {"p": 0.3}
+    )
 
     architecture = outputs["architecture"]
     assert len(architecture["modules"]) == 1
     assert architecture["modules"][0].p == 0.3
     assert architecture["in_features"] == 8
+    assert architecture["shape"] is None
 
 
 def test_dropout_codegen_emits_dropout_append():
@@ -119,6 +156,7 @@ def test_dropout_codegen_emits_dropout_append():
     assert lines == [
         "n3_architecture = n2_architecture + [nn.Dropout(p=0.3)]",
         "n3_architecture_in_features = n2_architecture_in_features",
+        "n3_architecture_shape = n2_architecture_shape",
     ]
 
 
