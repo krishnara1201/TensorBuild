@@ -556,3 +556,117 @@ def test_flatten_codegen_emits_flatten_append():
         "n1_architecture_shape[0] * n1_architecture_shape[1] * n1_architecture_shape[2]",
         "n2_architecture_shape = None",
     ]
+
+
+def _toy_cnn_architecture(channels=1, height=8, width=8, out_classes=2):
+    image_input = _load_node_module("pytorch_models/image_input")
+    conv2d = _load_node_module("pytorch_models/conv2d")
+    flatten = _load_node_module("pytorch_models/flatten")
+    linear = _load_node_module("pytorch_models/linear")
+
+    train_images = _image_batch(n=8, channels=channels, height=height, width=width)
+    arch = image_input.execute({"train_images": train_images}, {"random_state": 42})[
+        "architecture"
+    ]
+    arch = conv2d.execute({"architecture": arch}, {"out_channels": 4, "kernel_size": 3})[
+        "architecture"
+    ]
+    arch = flatten.execute({"architecture": arch}, {})["architecture"]
+    arch = linear.execute({"architecture": arch}, {"out_features": out_classes})["architecture"]
+    return arch, train_images
+
+
+def test_train_image_classifier_execute_trains_and_returns_metrics():
+    train_node = _load_node_module("pytorch_models/train_image_classifier")
+    architecture, batch = _toy_cnn_architecture()
+
+    outputs = train_node.execute(
+        {"train_images": batch, "test_images": batch, "architecture": architecture},
+        {
+            "loss_fn": "CrossEntropyLoss",
+            "optimizer": "Adam",
+            "learning_rate": 0.01,
+            "epochs": 2,
+            "batch_size": 4,
+        },
+    )
+
+    model = outputs["model"]
+    preds = model["estimator"](batch["images"])
+    assert preds.shape == (8, 2)
+
+    metrics = outputs["metrics"]
+    assert isinstance(metrics["final_train_loss"], float)
+    assert isinstance(metrics["final_val_loss"], float)
+    assert isinstance(metrics["final_val_accuracy"], float)
+
+
+def test_train_image_classifier_execute_calls_progress_callback_once_per_epoch():
+    train_node = _load_node_module("pytorch_models/train_image_classifier")
+    architecture, batch = _toy_cnn_architecture()
+
+    events = []
+    train_node.execute(
+        {"train_images": batch, "test_images": batch, "architecture": architecture},
+        {
+            "loss_fn": "CrossEntropyLoss",
+            "optimizer": "Adam",
+            "learning_rate": 0.01,
+            "epochs": 2,
+            "batch_size": 4,
+        },
+        progress_callback=events.append,
+    )
+
+    assert [e["epoch"] for e in events] == [0, 1]
+    assert all(e["event"] == "progress" for e in events)
+
+
+def test_train_image_classifier_codegen_emits_training_loop():
+    train_node = _load_node_module("pytorch_models/train_image_classifier")
+    lines = train_node.codegen(
+        {"train_images": "n2_train", "test_images": "n2_test", "architecture": "n5_architecture"},
+        {
+            "loss_fn": "CrossEntropyLoss",
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 5,
+            "batch_size": 16,
+        },
+        {"model": "n6_model", "metrics": "n6_metrics"},
+    )
+    assert lines == [
+        "n6_model_module = nn.Sequential(*n5_architecture)",
+        "n6_model_loss_fn = nn.CrossEntropyLoss()",
+        "n6_model_optimizer = torch.optim.Adam(n6_model_module.parameters(), lr=0.001)",
+        "n6_model_n = n2_train_images.shape[0]",
+        "n6_model_train_loss = 0.0",
+        "n6_model_val_loss = 0.0",
+        "n6_model_val_accuracy = 0.0",
+        "for n6_model_epoch in range(5):",
+        "    n6_model_module.train()",
+        "    n6_model_permutation = torch.randperm(n6_model_n)",
+        "    n6_model_epoch_loss = 0.0",
+        "    for n6_model_start in range(0, n6_model_n, 16):",
+        "        n6_model_idx = n6_model_permutation[n6_model_start:n6_model_start + 16]",
+        "        n6_model_xb = n2_train_images[n6_model_idx]",
+        "        n6_model_yb = n2_train_labels[n6_model_idx]",
+        "        n6_model_optimizer.zero_grad()",
+        "        n6_model_out = n6_model_module(n6_model_xb)",
+        "        n6_model_loss = n6_model_loss_fn(n6_model_out, n6_model_yb)",
+        "        n6_model_loss.backward()",
+        "        n6_model_optimizer.step()",
+        "        n6_model_epoch_loss += n6_model_loss.item() * len(n6_model_idx)",
+        "    n6_model_train_loss = n6_model_epoch_loss / n6_model_n",
+        "    n6_model_module.eval()",
+        "    with torch.no_grad():",
+        "        n6_model_val_out = n6_model_module(n2_test_images)",
+        "        n6_model_val_loss = n6_model_loss_fn(n6_model_val_out, n2_test_labels).item()",
+        "        n6_model_val_accuracy = (n6_model_val_out.argmax(dim=1) == "
+        "n2_test_labels).float().mean().item()",
+        "n6_model = {'estimator': n6_model_module}",
+        "n6_metrics = {'final_train_loss': float(n6_model_train_loss), "
+        "'final_val_loss': float(n6_model_val_loss), "
+        "'final_val_accuracy': float(n6_model_val_accuracy)}",
+        "print(n6_metrics)",
+    ]

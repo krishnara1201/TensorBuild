@@ -1,0 +1,34 @@
+{
+    "id": "pytorch_models.train_image_classifier",
+    "category": "Models (PyTorch)",
+    "label": "Train Image Classifier",
+    "inputs": [
+        {"name": "train_images", "type": "ImageBatch"},
+        {"name": "test_images", "type": "ImageBatch"},
+        {"name": "architecture", "type": "Layer"}
+    ],
+    "outputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "metrics", "type": "Metrics"}
+    ],
+    "params": [
+        {
+            "name": "loss_fn",
+            "type": "select",
+            "label": "Loss Function",
+            "default": "CrossEntropyLoss",
+            "options": ["CrossEntropyLoss"]
+        },
+        {
+            "name": "optimizer",
+            "type": "select",
+            "label": "Optimizer",
+            "default": "Adam",
+            "options": ["Adam", "SGD"]
+        },
+        {"name": "learning_rate", "type": "number", "label": "Learning Rate", "default": 0.001},
+        {"name": "epochs", "type": "number", "label": "Epochs", "default": 10},
+        {"name": "batch_size", "type": "number", "label": "Batch Size", "default": 32}
+    ],
+    "long_running": true
+}
