@@ -9,6 +9,17 @@ vi.mock('../src/api/client', async () => {
   return { ...actual, useNodes: vi.fn(), useRunPipeline: vi.fn(), useGetCode: vi.fn() }
 })
 
+vi.mock('../src/training/TrainingMonitor', () => ({
+  TrainingMonitor: ({ runId, onClose }: { runId: string; onClose: () => void }) => (
+    <div>
+      <p>Training monitor for {runId}</p>
+      <button type="button" onClick={onClose}>
+        Close training monitor
+      </button>
+    </div>
+  ),
+}))
+
 function mockMutation(overrides: Partial<ReturnType<typeof client.useRunPipeline>>) {
   return {
     mutate: vi.fn(),
@@ -43,7 +54,10 @@ describe('App', () => {
     render(<App />)
     await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
 
-    expect(runMutate).toHaveBeenCalledWith({ nodes: [], edges: [] })
+    expect(runMutate).toHaveBeenCalledWith(
+      { nodes: [], edges: [] },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
   })
 
   it('shows the run error message when the run mutation fails', () => {
@@ -55,15 +69,29 @@ describe('App', () => {
     expect(screen.getByText('unknown node type')).toBeInTheDocument()
   })
 
-  it('renders returned metrics on a successful run', () => {
+  it('renders returned metrics on a successful synchronous run', () => {
     vi.mocked(client.useRunPipeline).mockReturnValue(
-      mockMutation({ data: { metrics: { 'n4.metrics': { accuracy: 0.95 } } } }),
+      mockMutation({ data: { kind: 'sync', metrics: { 'n4.metrics': { accuracy: 0.95 } } } }),
     )
     vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
 
     render(<App />)
 
     expect(screen.getByText(/n4\.metrics/)).toBeInTheDocument()
+  })
+
+  it('opens the training monitor when the run mutation returns an async outcome', async () => {
+    const runMutate = vi.fn(
+      (_ir, options?: { onSuccess?: (outcome: { kind: 'async'; runId: string }) => void }) =>
+        options?.onSuccess?.({ kind: 'async', runId: 'run-1' }),
+    )
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ mutate: runMutate }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
+
+    expect(screen.getByText('Training monitor for run-1')).toBeInTheDocument()
   })
 
   it('opens the code view panel after a successful codegen call', async () => {

@@ -7,12 +7,14 @@ import { CodeViewPanel } from './codeview/CodeViewPanel'
 import { InspectorPanel } from './inspector/InspectorPanel'
 import { toIR } from './ir/convert'
 import { NodePalette } from './palette/NodePalette'
+import { TrainingMonitor } from './training/TrainingMonitor'
 
 export function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<PipelineNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<PipelineEdge>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isCodeViewOpen, setCodeViewOpen] = useState(false)
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
 
   const runMutation = useRunPipeline()
   const codeMutation = useGetCode()
@@ -33,7 +35,13 @@ export function App() {
   )
 
   const handleRun = useCallback(() => {
-    runMutation.mutate(toIR(nodes, edges))
+    runMutation.mutate(toIR(nodes, edges), {
+      onSuccess: (outcome) => {
+        if (outcome.kind === 'async') {
+          setActiveRunId(outcome.runId)
+        }
+      },
+    })
   }, [nodes, edges, runMutation])
 
   const handleViewCode = useCallback(() => {
@@ -55,7 +63,7 @@ export function App() {
       </header>
 
       {runMutation.error && <p className="error-banner">{runMutation.error.message}</p>}
-      {runMutation.data && (
+      {runMutation.data?.kind === 'sync' && (
         <ul className="metrics-list">
           {Object.entries(runMutation.data.metrics).map(([ref, value]) => (
             <li key={ref}>
@@ -83,6 +91,7 @@ export function App() {
       {isCodeViewOpen && codeMutation.data && (
         <CodeViewPanel code={codeMutation.data.code} onClose={() => setCodeViewOpen(false)} />
       )}
+      {activeRunId && <TrainingMonitor runId={activeRunId} onClose={() => setActiveRunId(null)} />}
     </div>
   )
 }

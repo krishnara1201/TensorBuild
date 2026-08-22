@@ -54,7 +54,7 @@ describe('App integration (real client.ts + hooks, fetch stubbed at the network 
           return Promise.resolve({ ok: true, json: async () => manifests } as Response)
         }
         if (url.endsWith('/pipeline/run')) {
-          return Promise.resolve({ ok: true, json: async () => ({ metrics: {} }) } as Response)
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ metrics: {} }) } as Response)
         }
         return Promise.reject(new Error(`unexpected fetch to ${url}`))
       }),
@@ -88,5 +88,59 @@ describe('App integration (real client.ts + hooks, fetch stubbed at the network 
         body: JSON.stringify({ nodes: [], edges: [] }),
       })
     })
+  })
+})
+
+class MockWebSocket {
+  static instances: MockWebSocket[] = []
+  onopen: (() => void) | null = null
+  onmessage: ((event: { data: string }) => void) | null = null
+  onerror: (() => void) | null = null
+  onclose: (() => void) | null = null
+  close = vi.fn()
+
+  constructor(public url: string) {
+    MockWebSocket.instances.push(this)
+  }
+}
+
+describe('App integration — async training run (real client.ts + hooks, WS stubbed)', () => {
+  beforeEach(() => {
+    MockWebSocket.instances = []
+    vi.stubGlobal('WebSocket', MockWebSocket)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.endsWith('/nodes')) {
+          return Promise.resolve({ ok: true, json: async () => manifests } as Response)
+        }
+        if (url.endsWith('/pipeline/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({ run_id: 'run-123' }),
+          } as Response)
+        }
+        return Promise.reject(new Error(`unexpected fetch to ${url}`))
+      }),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('opens a WebSocket to /ws/runs/{run_id} and shows the training monitor when the engine returns 202', async () => {
+    renderApp()
+
+    await screen.findByText('CSV Loader')
+    await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Training…')).toBeInTheDocument()
+    })
+    expect(MockWebSocket.instances).toHaveLength(1)
+    expect(MockWebSocket.instances[0]?.url).toBe('ws://127.0.0.1:8000/ws/runs/run-123')
   })
 })
