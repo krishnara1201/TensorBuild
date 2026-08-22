@@ -46,7 +46,7 @@ def test_normalize_images_codegen_emits_train_stat_normalize():
     )
     assert lines == [
         "n2_train_mean = n1_train_images.mean(dim=(0, 2, 3), keepdim=True)",
-        "n2_train_std = n1_train_images.std(dim=(0, 2, 3), keepdim=True)",
+        "n2_train_std = n1_train_images.std(dim=(0, 2, 3), keepdim=True, unbiased=False)",
         "n2_train_images = (n1_train_images - n2_train_mean) / n2_train_std",
         "n2_train_labels = n1_train_labels",
         "n2_test_images = (n1_test_images - n2_train_mean) / n2_train_std",
