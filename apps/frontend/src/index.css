@@ -141,7 +141,7 @@ body {
   margin: 0;
 }
 
-.code-view-panel {
+.modal-panel {
   position: fixed;
   inset: 0;
   background: white;
@@ -150,8 +150,12 @@ body {
   z-index: 10;
 }
 
-.code-view-panel-header {
+.modal-panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.training-monitor-chart {
+  margin: 16px 0;
 }

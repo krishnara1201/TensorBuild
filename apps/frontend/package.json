@@ -16,7 +16,8 @@
     "@xyflow/react": "^12.11.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-syntax-highlighter": "^16.1.1"
+    "react-syntax-highlighter": "^16.1.1",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

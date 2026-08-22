@@ -8,8 +8,8 @@ export interface CodeViewPanelProps {
 
 export function CodeViewPanel({ code, onClose }: CodeViewPanelProps) {
   return (
-    <div className="code-view-panel">
-      <div className="code-view-panel-header">
+    <div className="modal-panel">
+      <div className="modal-panel-header">
         <h2>Generated Code</h2>
         <button type="button" onClick={onClose}>
           Close
