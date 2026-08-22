@@ -1,0 +1,42 @@
+{
+    "id": "pytorch_models.train",
+    "category": "Models (PyTorch)",
+    "label": "Train",
+    "inputs": [
+        {"name": "train_table", "type": "Table"},
+        {"name": "test_table", "type": "Table"},
+        {"name": "architecture", "type": "Layer"}
+    ],
+    "outputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "metrics", "type": "Metrics"}
+    ],
+    "params": [
+        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""},
+        {
+            "name": "task_type",
+            "type": "select",
+            "label": "Task Type",
+            "default": "classification",
+            "options": ["classification", "regression"]
+        },
+        {
+            "name": "loss_fn",
+            "type": "select",
+            "label": "Loss Function",
+            "default": "CrossEntropyLoss",
+            "options": ["CrossEntropyLoss", "MSELoss"]
+        },
+        {
+            "name": "optimizer",
+            "type": "select",
+            "label": "Optimizer",
+            "default": "Adam",
+            "options": ["Adam", "SGD"]
+        },
+        {"name": "learning_rate", "type": "number", "label": "Learning Rate", "default": 0.001},
+        {"name": "epochs", "type": "number", "label": "Epochs", "default": 20},
+        {"name": "batch_size", "type": "number", "label": "Batch Size", "default": 32}
+    ],
+    "long_running": true
+}
