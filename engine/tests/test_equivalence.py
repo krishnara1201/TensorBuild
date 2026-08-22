@@ -482,7 +482,10 @@ def test_executor_and_exported_script_agree_with_cnn_pipeline(tmp_path, registry
     )
 
     context = execute_pipeline(ir, registry)
-    executor_accuracy = context["n9.metrics"]["final_val_accuracy"]
+    executor_metrics = context["n9.metrics"]
+    executor_accuracy = executor_metrics["final_val_accuracy"]
+    executor_train_loss = executor_metrics["final_train_loss"]
+    executor_val_loss = executor_metrics["final_val_loss"]
 
     code = generate_code(ir, registry)
     script_path = tmp_path / "exported_cnn.py"
@@ -500,4 +503,14 @@ def test_executor_and_exported_script_agree_with_cnn_pipeline(tmp_path, registry
     assert match is not None, f"no final_val_accuracy found in script output:\n{result.stdout}"
     script_accuracy = float(match.group(1))
 
+    train_loss_match = re.search(r"'final_train_loss':\s*([0-9.eE+-]+)", result.stdout)
+    assert train_loss_match is not None, f"no final_train_loss found in script output:\n{result.stdout}"
+    script_train_loss = float(train_loss_match.group(1))
+
+    val_loss_match = re.search(r"'final_val_loss':\s*([0-9.eE+-]+)", result.stdout)
+    assert val_loss_match is not None, f"no final_val_loss found in script output:\n{result.stdout}"
+    script_val_loss = float(val_loss_match.group(1))
+
     assert executor_accuracy == pytest.approx(script_accuracy, abs=1e-6)
+    assert executor_train_loss == pytest.approx(script_train_loss, abs=1e-6)
+    assert executor_val_loss == pytest.approx(script_val_loss, abs=1e-6)
