@@ -449,12 +449,14 @@ def test_executor_and_exported_script_agree_with_cnn_pipeline(tmp_path, registry
                     "type": "pytorch_models.conv2d",
                     "params": {"out_channels": 4, "kernel_size": 3},
                 },
-                {"id": "n5", "type": "pytorch_models.relu", "params": {}},
-                {"id": "n6", "type": "pytorch_models.maxpool2d", "params": {"pool_size": 2}},
-                {"id": "n7", "type": "pytorch_models.flatten", "params": {}},
-                {"id": "n8", "type": "pytorch_models.linear", "params": {"out_features": 2}},
+                {"id": "n5", "type": "pytorch_models.batchnorm2d", "params": {}},
+                {"id": "n6", "type": "pytorch_models.relu", "params": {}},
+                {"id": "n7", "type": "pytorch_models.maxpool2d", "params": {"pool_size": 2}},
+                {"id": "n8", "type": "pytorch_models.flatten", "params": {}},
+                {"id": "n9", "type": "pytorch_models.dropout", "params": {"p": 0.5}},
+                {"id": "n10", "type": "pytorch_models.linear", "params": {"out_features": 2}},
                 {
-                    "id": "n9",
+                    "id": "n11",
                     "type": "pytorch_models.train_image_classifier",
                     "params": {
                         "loss_fn": "CrossEntropyLoss",
@@ -474,15 +476,17 @@ def test_executor_and_exported_script_agree_with_cnn_pipeline(tmp_path, registry
                 {"from": "n5.architecture", "to": "n6.architecture"},
                 {"from": "n6.architecture", "to": "n7.architecture"},
                 {"from": "n7.architecture", "to": "n8.architecture"},
-                {"from": "n2.train", "to": "n9.train_images"},
-                {"from": "n2.test", "to": "n9.test_images"},
                 {"from": "n8.architecture", "to": "n9.architecture"},
+                {"from": "n9.architecture", "to": "n10.architecture"},
+                {"from": "n2.train", "to": "n11.train_images"},
+                {"from": "n2.test", "to": "n11.test_images"},
+                {"from": "n10.architecture", "to": "n11.architecture"},
             ],
         }
     )
 
     context = execute_pipeline(ir, registry)
-    executor_metrics = context["n9.metrics"]
+    executor_metrics = context["n11.metrics"]
     executor_accuracy = executor_metrics["final_val_accuracy"]
     executor_train_loss = executor_metrics["final_train_loss"]
     executor_val_loss = executor_metrics["final_val_loss"]
