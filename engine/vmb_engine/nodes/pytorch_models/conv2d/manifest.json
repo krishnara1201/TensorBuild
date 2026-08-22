@@ -1,0 +1,11 @@
+{
+    "id": "pytorch_models.conv2d",
+    "category": "Models (PyTorch)",
+    "label": "Conv2D",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": [
+        {"name": "out_channels", "type": "number", "label": "Output Channels", "default": 16},
+        {"name": "kernel_size", "type": "number", "label": "Kernel Size", "default": 3}
+    ]
+}

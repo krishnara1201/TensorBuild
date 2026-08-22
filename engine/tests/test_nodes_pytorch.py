@@ -391,3 +391,49 @@ def test_image_input_codegen_emits_seed_and_shape():
         "n2_architecture_in_features = None",
         "n2_architecture = []",
     ]
+
+
+def test_conv2d_execute_updates_channel_count_and_preserves_hw():
+    conv2d = _load_node_module("pytorch_models/conv2d")
+
+    outputs = conv2d.execute(
+        {"architecture": {"modules": [], "in_features": None, "shape": (3, 8, 8)}},
+        {"out_channels": 6, "kernel_size": 3},
+    )
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["modules"][0].out_channels == 6
+    assert architecture["shape"] == (6, 8, 8)
+    assert architecture["in_features"] is None
+
+
+def test_conv2d_execute_raises_without_spatial_shape():
+    conv2d = _load_node_module("pytorch_models/conv2d")
+
+    try:
+        conv2d.execute(
+            {"architecture": {"modules": [], "in_features": 8, "shape": None}},
+            {"out_channels": 6, "kernel_size": 3},
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "spatial shape" in str(exc)
+
+
+def test_conv2d_codegen_emits_conv_append():
+    conv2d = _load_node_module("pytorch_models/conv2d")
+    lines = conv2d.codegen(
+        {"architecture": "n1_architecture"},
+        {"out_channels": 6, "kernel_size": 3},
+        {"architecture": "n2_architecture"},
+    )
+    assert lines == [
+        "assert n1_architecture_shape is not None, "
+        "'Conv2D requires a spatial shape; insert after Image Input, another "
+        "Conv2D/BatchNorm2D/MaxPool2D — not after Flatten/Linear'",
+        "n2_architecture = n1_architecture + "
+        "[nn.Conv2d(n1_architecture_shape[0], 6, 3, padding='same')]",
+        "n2_architecture_shape = (6, n1_architecture_shape[1], n1_architecture_shape[2])",
+        "n2_architecture_in_features = None",
+    ]
