@@ -48,7 +48,11 @@ def topological_sort(ir: PipelineIR) -> list[str]:
     return order
 
 
-def execute_pipeline(ir: PipelineIR, registry: NodeRegistry) -> dict[str, object]:
+def execute_pipeline(
+    ir: PipelineIR,
+    registry: NodeRegistry,
+    progress_callback=None,
+) -> dict[str, object]:
     order = topological_sort(ir)
     nodes_by_id = {node.id: node for node in ir.nodes}
 
@@ -75,9 +79,19 @@ def execute_pipeline(ir: PipelineIR, registry: NodeRegistry) -> dict[str, object
                     f"node '{node_id}' missing required input '{port.name}'"
                 )
 
+        def node_progress(event: dict, _node_id=node_id) -> None:
+            if progress_callback is not None:
+                progress_callback({**event, "node_id": _node_id})
+
         try:
-            outputs = node_def.execute(inputs, node_spec.params)
+            if node_def.manifest.long_running:
+                outputs = node_def.execute(
+                    inputs, node_spec.params, progress_callback=node_progress
+                )
+            else:
+                outputs = node_def.execute(inputs, node_spec.params)
         except Exception as exc:
+            node_progress({"event": "node_error", "error": str(exc)})
             raise ExecutorError(
                 f"node '{node_id}' ({node_spec.type}) failed: {exc}"
             ) from exc
@@ -90,3 +104,21 @@ def execute_pipeline(ir: PipelineIR, registry: NodeRegistry) -> dict[str, object
             context[f"{node_id}.{port.name}"] = outputs[port.name]
 
     return context
+
+
+def collect_metrics_outputs(
+    ir: PipelineIR, registry: NodeRegistry, context: dict
+) -> dict:
+    nodes_by_id = {node.id: node for node in ir.nodes}
+    metrics = {}
+    for ref, value in context.items():
+        node_id, port_name = ref.split(".", 1)
+        node_def = registry.get(nodes_by_id[node_id].type)
+        port = next((p for p in node_def.manifest.outputs if p.name == port_name), None)
+        if port is not None and port.type == "Metrics":
+            metrics[ref] = value
+    return metrics
+
+
+def pipeline_has_long_running_node(ir: PipelineIR, registry: NodeRegistry) -> bool:
+    return any(registry.get(node.type).manifest.long_running for node in ir.nodes)

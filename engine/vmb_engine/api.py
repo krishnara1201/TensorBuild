@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from vmb_engine.codegen import generate_code
-from vmb_engine.executor import ExecutorError, execute_pipeline
+from vmb_engine.executor import ExecutorError, collect_metrics_outputs, execute_pipeline
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry, RegistryError
 
@@ -41,16 +41,7 @@ def create_app(node_paths: list[Path] | None = None) -> FastAPI:
         except (ExecutorError, RegistryError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-        nodes_by_id = {node.id: node for node in ir.nodes}
-        metrics = {}
-        for ref, value in context.items():
-            node_id, port_name = ref.split(".", 1)
-            node_def = registry.get(nodes_by_id[node_id].type)
-            port = next((p for p in node_def.manifest.outputs if p.name == port_name), None)
-            if port is not None and port.type == "Metrics":
-                metrics[ref] = value
-
-        return {"metrics": metrics}
+        return {"metrics": collect_metrics_outputs(ir, registry, context)}
 
     @app.post("/pipeline/codegen")
     def codegen_pipeline(ir: PipelineIR):
