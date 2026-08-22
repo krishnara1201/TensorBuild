@@ -355,3 +355,39 @@ def test_train_codegen_emits_training_loop_for_regression():
         "n6_model = _TorchPredictAdapter(n6_model_module, 'regression')",
         "n6_metrics = {'final_train_loss': float(n6_model_train_loss), 'final_val_loss': float(n6_model_val_loss)}",
     ]
+
+
+def _image_batch(n=4, channels=3, height=8, width=8):
+    import torch
+
+    images = torch.zeros(n, channels, height, width)
+    labels = torch.zeros(n, dtype=torch.long)
+    return {"images": images, "labels": labels}
+
+
+def test_image_input_execute_infers_spatial_shape():
+    image_input = _load_node_module("pytorch_models/image_input")
+
+    outputs = image_input.execute(
+        {"train_images": _image_batch(channels=3, height=8, width=8)}, {"random_state": 42}
+    )
+
+    architecture = outputs["architecture"]
+    assert architecture["modules"] == []
+    assert architecture["in_features"] is None
+    assert architecture["shape"] == (3, 8, 8)
+
+
+def test_image_input_codegen_emits_seed_and_shape():
+    image_input = _load_node_module("pytorch_models/image_input")
+    lines = image_input.codegen(
+        {"train_images": "n1_train"},
+        {"random_state": 42},
+        {"architecture": "n2_architecture"},
+    )
+    assert lines == [
+        "torch.manual_seed(42)",
+        "n2_architecture_shape = tuple(n1_train_images.shape[1:])",
+        "n2_architecture_in_features = None",
+        "n2_architecture = []",
+    ]

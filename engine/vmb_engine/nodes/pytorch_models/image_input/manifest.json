@@ -1,0 +1,10 @@
+{
+    "id": "pytorch_models.image_input",
+    "category": "Models (PyTorch)",
+    "label": "Image Input",
+    "inputs": [{"name": "train_images", "type": "ImageBatch"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": [
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}
