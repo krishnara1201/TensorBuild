@@ -77,3 +77,46 @@ def test_linear_codegen_emits_layer_append():
         "n2_architecture = n1_architecture + [nn.Linear(n1_architecture_in_features, 8)]",
         "n2_architecture_in_features = 8",
     ]
+
+
+def test_relu_execute_appends_activation_and_preserves_in_features():
+    relu = _load_node_module("pytorch_models/relu")
+
+    outputs = relu.execute({"architecture": {"modules": [], "in_features": 8}}, {})
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["in_features"] == 8
+
+
+def test_relu_codegen_emits_activation_append():
+    relu = _load_node_module("pytorch_models/relu")
+    lines = relu.codegen(
+        {"architecture": "n2_architecture"}, {}, {"architecture": "n3_architecture"}
+    )
+    assert lines == [
+        "n3_architecture = n2_architecture + [nn.ReLU()]",
+        "n3_architecture_in_features = n2_architecture_in_features",
+    ]
+
+
+def test_dropout_execute_appends_dropout_and_preserves_in_features():
+    dropout = _load_node_module("pytorch_models/dropout")
+
+    outputs = dropout.execute({"architecture": {"modules": [], "in_features": 8}}, {"p": 0.3})
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["modules"][0].p == 0.3
+    assert architecture["in_features"] == 8
+
+
+def test_dropout_codegen_emits_dropout_append():
+    dropout = _load_node_module("pytorch_models/dropout")
+    lines = dropout.codegen(
+        {"architecture": "n2_architecture"}, {"p": 0.3}, {"architecture": "n3_architecture"}
+    )
+    assert lines == [
+        "n3_architecture = n2_architecture + [nn.Dropout(p=0.3)]",
+        "n3_architecture_in_features = n2_architecture_in_features",
+    ]

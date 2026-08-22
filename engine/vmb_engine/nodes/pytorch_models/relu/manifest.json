@@ -1,0 +1,8 @@
+{
+    "id": "pytorch_models.relu",
+    "category": "Models (PyTorch)",
+    "label": "ReLU",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": []
+}

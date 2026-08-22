@@ -1,0 +1,10 @@
+{
+    "id": "pytorch_models.dropout",
+    "category": "Models (PyTorch)",
+    "label": "Dropout",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": [
+        {"name": "p", "type": "number", "label": "Dropout Probability", "default": 0.5}
+    ]
+}
