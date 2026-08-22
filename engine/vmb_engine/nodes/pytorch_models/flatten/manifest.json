@@ -1,0 +1,8 @@
+{
+    "id": "pytorch_models.flatten",
+    "category": "Models (PyTorch)",
+    "label": "Flatten",
+    "inputs": [{"name": "architecture", "type": "Layer"}],
+    "outputs": [{"name": "architecture", "type": "Layer"}],
+    "params": []
+}

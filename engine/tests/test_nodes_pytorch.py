@@ -518,3 +518,41 @@ def test_maxpool2d_codegen_emits_pool_append():
         "n1_architecture_shape[1] // 2, n1_architecture_shape[2] // 2)",
         "n2_architecture_in_features = None",
     ]
+
+
+def test_flatten_execute_collapses_shape_to_in_features():
+    flatten = _load_node_module("pytorch_models/flatten")
+
+    outputs = flatten.execute(
+        {"architecture": {"modules": [], "in_features": None, "shape": (6, 4, 4)}}, {}
+    )
+
+    architecture = outputs["architecture"]
+    assert len(architecture["modules"]) == 1
+    assert architecture["in_features"] == 96
+    assert architecture["shape"] is None
+
+
+def test_flatten_execute_raises_without_spatial_shape():
+    flatten = _load_node_module("pytorch_models/flatten")
+
+    try:
+        flatten.execute({"architecture": {"modules": [], "in_features": 8, "shape": None}}, {})
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "spatial shape" in str(exc)
+
+
+def test_flatten_codegen_emits_flatten_append():
+    flatten = _load_node_module("pytorch_models/flatten")
+    lines = flatten.codegen(
+        {"architecture": "n1_architecture"}, {}, {"architecture": "n2_architecture"}
+    )
+    assert lines == [
+        "assert n1_architecture_shape is not None, "
+        "'Flatten requires a spatial shape; nothing to flatten'",
+        "n2_architecture = n1_architecture + [nn.Flatten()]",
+        "n2_architecture_in_features = "
+        "n1_architecture_shape[0] * n1_architecture_shape[1] * n1_architecture_shape[2]",
+        "n2_architecture_shape = None",
+    ]
