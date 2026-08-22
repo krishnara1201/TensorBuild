@@ -8,6 +8,7 @@ class ParamSpec(BaseModel):
     type: str
     label: str
     default: object = None
+    options: list[str] | None = None
 
 
 class NodeManifest(BaseModel):

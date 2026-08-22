@@ -116,3 +116,146 @@ def test_one_hot_encode_codegen_emits_encoder_fit_transform():
         ")",
         "n3_test = pd.concat([n2_test.drop(columns=n3_train_cat_cols), n3_test_encoded], axis=1)",
     ]
+
+
+def test_clean_data_execute_drops_specified_columns():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"a": [1, 2], "id": [10, 20]})
+
+    out = clean_data.execute({"table": df}, {"drop_columns": "id"})
+
+    assert list(out["table"].columns) == ["a"]
+
+
+def test_clean_data_execute_strips_whitespace_from_string_columns():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"cat": [" x ", "y "]})
+
+    out = clean_data.execute({"table": df}, {"strip_whitespace": True})
+
+    assert list(out["table"]["cat"]) == ["x", "y"]
+
+
+def test_clean_data_execute_fixes_numeric_dtypes():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"b": ["1", "2", "3"]})
+
+    out = clean_data.execute({"table": df}, {"fix_dtypes": True})
+
+    assert out["table"]["b"].tolist() == [1, 2, 3]
+    assert pd.api.types.is_numeric_dtype(out["table"]["b"])
+
+
+def test_clean_data_execute_fix_dtypes_leaves_non_numeric_column_untouched():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"b": ["1", "2", "x"]})
+
+    out = clean_data.execute({"table": df}, {"fix_dtypes": True})
+
+    assert out["table"]["b"].tolist() == ["1", "2", "x"]
+
+
+def test_clean_data_execute_drops_rows_missing_selected_columns():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"a": [1.0, None, 3.0], "b": [1, 2, 3]})
+
+    out = clean_data.execute(
+        {"table": df},
+        {"missing_value_strategy": "drop_rows", "missing_value_columns": "a"},
+    )
+
+    assert out["table"]["a"].tolist() == [1.0, 3.0]
+
+
+def test_clean_data_execute_fill_mean_only_applies_to_numeric_columns():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"a": [1.0, None, 3.0], "cat": ["x", None, "y"]})
+
+    out = clean_data.execute(
+        {"table": df},
+        {"missing_value_strategy": "fill_mean", "missing_value_columns": "a,cat"},
+    )
+
+    assert out["table"]["a"].tolist() == [1.0, 2.0, 3.0]
+    assert out["table"]["cat"].isna().sum() == 1
+
+
+def test_clean_data_execute_fill_median_fills_with_column_median():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"a": [1.0, None, 3.0, 100.0]})
+
+    out = clean_data.execute(
+        {"table": df},
+        {"missing_value_strategy": "fill_median", "missing_value_columns": "a"},
+    )
+
+    assert out["table"]["a"].tolist() == [1.0, 3.0, 3.0, 100.0]
+
+
+def test_clean_data_execute_fill_mode_fills_with_most_frequent_value():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"cat": ["x", "x", "y", None]})
+
+    out = clean_data.execute(
+        {"table": df},
+        {"missing_value_strategy": "fill_mode", "missing_value_columns": "cat"},
+    )
+
+    assert out["table"]["cat"].tolist() == ["x", "x", "y", "x"]
+
+
+def test_clean_data_execute_missing_value_columns_blank_means_all_columns():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"cat1": ["x", None], "cat2": [None, "y"]})
+
+    out = clean_data.execute(
+        {"table": df},
+        {"missing_value_strategy": "fill_constant", "fill_constant_value": "unknown"},
+    )
+
+    assert out["table"]["cat1"].tolist() == ["x", "unknown"]
+    assert out["table"]["cat2"].tolist() == ["unknown", "y"]
+
+
+def test_clean_data_execute_drops_duplicate_rows():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"a": [1, 1, 2], "b": [1, 1, 2]})
+
+    out = clean_data.execute({"table": df}, {"drop_duplicates": True})
+
+    assert len(out["table"]) == 2
+
+
+def test_clean_data_execute_no_ops_returns_unchanged_copy():
+    clean_data = _load_node_module("preprocessing/clean_data")
+    df = pd.DataFrame({"a": [1, 2]})
+
+    out = clean_data.execute({"table": df}, {})
+
+    assert out["table"].equals(df)
+    assert out["table"] is not df
+
+
+def test_clean_data_codegen_emits_operations_in_order():
+    clean_data = _load_node_module("preprocessing/clean_data")
+
+    lines = clean_data.codegen(
+        {"table": "n1_table"},
+        {
+            "drop_columns": "id",
+            "missing_value_strategy": "fill_constant",
+            "missing_value_columns": "cat",
+            "fill_constant_value": "unknown",
+            "drop_duplicates": True,
+        },
+        {"table": "n2_table"},
+    )
+
+    assert lines == [
+        "n2_table = n1_table.copy()",
+        "n2_table = n2_table.drop(columns=['id'])",
+        "n2_table_cols = ['cat']",
+        "for _col in n2_table_cols:",
+        "    n2_table[_col] = n2_table[_col].fillna('unknown')",
+        "n2_table = n2_table.drop_duplicates()",
+    ]

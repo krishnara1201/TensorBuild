@@ -1,0 +1,27 @@
+{
+    "id": "preprocessing.clean_data",
+    "category": "Preprocessing",
+    "label": "Clean Data",
+    "inputs": [{"name": "table", "type": "Table"}],
+    "outputs": [{"name": "table", "type": "Table"}],
+    "params": [
+        {"name": "drop_columns", "type": "text", "label": "Drop Columns (comma-separated)", "default": ""},
+        {"name": "strip_whitespace", "type": "checkbox", "label": "Strip Whitespace", "default": false},
+        {"name": "fix_dtypes", "type": "checkbox", "label": "Fix Numeric Dtypes", "default": false},
+        {
+            "name": "missing_value_strategy",
+            "type": "select",
+            "label": "Missing Value Strategy",
+            "default": "none",
+            "options": ["none", "drop_rows", "fill_mean", "fill_median", "fill_mode", "fill_constant"]
+        },
+        {
+            "name": "missing_value_columns",
+            "type": "text",
+            "label": "Missing Value Columns (blank = all, comma-separated)",
+            "default": ""
+        },
+        {"name": "fill_constant_value", "type": "text", "label": "Fill Constant Value", "default": ""},
+        {"name": "drop_duplicates", "type": "checkbox", "label": "Drop Duplicate Rows", "default": false}
+    ]
+}

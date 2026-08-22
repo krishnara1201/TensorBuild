@@ -32,3 +32,25 @@ def test_manifest_long_running_can_be_set():
     raw = dict(MANIFEST_JSON, long_running=True)
     manifest = NodeManifest.model_validate(raw)
     assert manifest.long_running is True
+
+
+def test_manifest_param_options_defaults_to_none():
+    manifest = NodeManifest.model_validate(MANIFEST_JSON)
+    assert manifest.params[0].options is None
+
+
+def test_manifest_parses_select_param_options_when_present():
+    raw = dict(
+        MANIFEST_JSON,
+        params=[
+            {
+                "name": "kernel",
+                "type": "select",
+                "label": "Kernel",
+                "default": "linear",
+                "options": ["linear", "rbf"],
+            }
+        ],
+    )
+    manifest = NodeManifest.model_validate(raw)
+    assert manifest.params[0].options == ["linear", "rbf"]
