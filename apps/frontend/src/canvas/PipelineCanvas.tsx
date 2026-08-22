@@ -24,7 +24,7 @@ import { createPipelineNode } from './nodeFactory'
 import type { PipelineEdge, PipelineNode, PipelineNodeData } from './types'
 import { isValidConnection as validateConnection } from './validation'
 
-const PORT_TOP_OFFSET = 24
+const PORT_TOP_OFFSET = 32
 const PORT_ROW_HEIGHT = 16
 const NODE_MIN_HEIGHT_PADDING = 16
 
