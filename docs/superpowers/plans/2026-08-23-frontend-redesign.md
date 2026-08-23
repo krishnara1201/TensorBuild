@@ -2294,6 +2294,8 @@ export function App() {
         </button>
       </header>
 
+      {codeMutation.error && <p className="error-banner">{codeMutation.error.message}</p>}
+
       <AppLayout
         palette={<NodePalette />}
         canvas={
