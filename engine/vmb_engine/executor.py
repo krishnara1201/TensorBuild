@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict, deque
 
 from vmb_engine.ir import PipelineIR
@@ -137,6 +138,10 @@ def execute_pipeline(
     return _execute_nodes(ir, registry, order, progress_callback)
 
 
+def _json_safe(value):
+    return None if isinstance(value, float) and not math.isfinite(value) else value
+
+
 def execute_subgraph_preview(
     ir: PipelineIR,
     registry: NodeRegistry,
@@ -146,6 +151,8 @@ def execute_subgraph_preview(
     nodes_by_id = {node.id: node for node in ir.nodes}
     if target_node_id not in nodes_by_id:
         raise PreviewError(f"unknown node '{target_node_id}'")
+
+    full_order = topological_sort(ir)
 
     ancestor_ids = ancestors_of(ir, target_node_id)
     for node_id in ancestor_ids:
@@ -157,14 +164,17 @@ def execute_subgraph_preview(
     if port_spec is None or port_spec.type != "Table":
         raise PreviewError(f"node '{target_node_id}' has no Table output named '{port}'")
 
-    order = [node_id for node_id in topological_sort(ir) if node_id in ancestor_ids]
+    order = [node_id for node_id in full_order if node_id in ancestor_ids]
     context = _execute_nodes(ir, registry, order)
 
     df = context[f"{target_node_id}.{port}"]
+    if not (hasattr(df, "columns") and hasattr(df, "head")):
+        raise PreviewError(f"node '{target_node_id}' has no Table output named '{port}'")
+
     sample = df.head(50)
     return {
         "columns": [{"name": str(col), "dtype": str(df[col].dtype)} for col in df.columns],
-        "rows": sample.values.tolist(),
+        "rows": [[_json_safe(v) for v in row] for row in sample.values.tolist()],
         "total_rows": len(df),
     }
 

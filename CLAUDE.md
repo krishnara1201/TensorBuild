@@ -13,7 +13,11 @@ exportable as a standalone, dependency-free `.py` script.
 The Python engine (`engine/`) and the frontend (`apps/frontend/` — React +
 Vite + TypeScript: canvas, palette, inspector, generated-code view) both
 exist. The frontend talks to the engine's HTTP API (`GET /nodes`,
-`POST /pipeline/run`, `POST /pipeline/codegen`).
+`POST /pipeline/run`, `POST /pipeline/codegen`, `POST /pipeline/preview`).
+`/pipeline/preview` runs a bounded subgraph (a target node's ancestors only)
+and returns a sampled, JSON-safe `Table` (columns/dtypes, up to 50 rows,
+total row count) — it backs both the frontend's data-preview panel and its
+dynamic `target_column` dropdowns.
 
 Read before making architectural changes:
 - `docs/superpowers/specs/2026-08-20-visual-ml-builder-design.md` — overall
@@ -114,6 +118,12 @@ vmb_engine/nodes/<category>/<node_name>/
                   # codegen(inputs: dict[str, str], params: dict, var_names: dict[str, str]) -> list[str]
 ```
 
+A `select`-type `ParamSpec` may carry an `options_source: {"input_port": ...}`
+instead of a static `options` list, marking it as populated dynamically (e.g.
+`target_column`) — the frontend resolves its options by calling
+`/pipeline/preview` on that input port's upstream node and reads off the
+returned column names.
+
 A malformed plugin (missing `manifest.json`, missing `execute`/`codegen`, a
 top-level exception in `node.py`, a duplicate manifest `id`) must fail loudly
 at `registry.scan()` time as `RegistryError`, not at first use — this is a
@@ -146,9 +156,9 @@ pipeline both ways and asserts the results match; when adding or changing a
 node, check this test still passes before trusting either path in isolation.
 
 `vmb_engine/api.py`'s `create_app(node_paths=...)` builds a FastAPI app
-exposing `GET /nodes`, `POST /pipeline/run`, `POST /pipeline/codegen` over
-the registry/executor/codegen above; `ExecutorError`/`RegistryError` map to
-422 responses. A pipeline containing a `"long_running": true` node (the
+exposing `GET /nodes`, `POST /pipeline/run`, `POST /pipeline/codegen`,
+`POST /pipeline/preview` over the registry/executor/codegen above;
+`ExecutorError`/`RegistryError`/`PreviewError` map to 422 responses. A pipeline containing a `"long_running": true` node (the
 `pytorch_models.train` node, and any future ones with the same flag) is
 executed differently: `POST /pipeline/run` returns `202 {"run_id": ...}`
 immediately instead of blocking, `RunManager` (`vmb_engine/runs.py`) runs

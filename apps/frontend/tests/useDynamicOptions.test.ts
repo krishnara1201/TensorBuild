@@ -102,4 +102,44 @@ describe('useDynamicOptions', () => {
 
     expect(result.current).toEqual({})
   })
+
+  it('does not refetch when an unrelated param on the selected node changes', async () => {
+    // Previous tests in this file leave calls recorded on the shared mock
+    // (there's no global mock reset configured) — clear it so the call
+    // count assertions below start from zero.
+    vi.mocked(client.previewSubgraph).mockClear()
+    vi.mocked(client.previewSubgraph).mockResolvedValueOnce({
+      columns: [
+        { name: 'age', dtype: 'int64' },
+        { name: 'label', dtype: 'int64' },
+      ],
+      rows: [],
+      total_rows: 0,
+    })
+    const edges: PipelineEdge[] = [
+      { id: 'e1', source: 'n1', sourceHandle: 'table', target: 'n2', targetHandle: 'train_table' },
+    ]
+
+    const { result, rerender } = renderHook(
+      ({ node, nodes }: { node: PipelineNode; nodes: PipelineNode[] }) => useDynamicOptions(node, nodes, edges),
+      { initialProps: { node: selectedNode, nodes: [selectedNode, upstreamNode] } },
+    )
+
+    await waitFor(() => {
+      expect(result.current.target_column).toEqual({ status: 'ready', options: ['age', 'label'] })
+    })
+    expect(client.previewSubgraph).toHaveBeenCalledTimes(1)
+
+    // Same ids/edges, only the SELECTED node's own params differ (e.g. the
+    // user typed into an unrelated field like Max Iterations) — this must
+    // not bust the cache or trigger a second fetch.
+    const changedNode: PipelineNode = {
+      ...selectedNode,
+      data: { ...selectedNode.data, params: { target_column: '', max_iter: 500 } },
+    }
+    rerender({ node: changedNode, nodes: [changedNode, upstreamNode] })
+
+    expect(result.current.target_column).toEqual({ status: 'ready', options: ['age', 'label'] })
+    expect(client.previewSubgraph).toHaveBeenCalledTimes(1)
+  })
 })

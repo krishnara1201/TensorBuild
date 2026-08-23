@@ -349,6 +349,19 @@ def test_execute_subgraph_preview_caps_rows_at_50(tmp_path, registry):
     assert len(result["rows"]) == 50
 
 
+def test_execute_subgraph_preview_handles_missing_values(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("age,label,note\n25,yes,hello\n,no,\n31,yes,world\n")
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [{"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}}],
+            "edges": [],
+        }
+    )
+    result = execute_subgraph_preview(ir, registry, "n1", "table")
+    assert result["rows"][1][0] is None  # the missing "age" cell serialized as None, not NaN
+
+
 def test_execute_subgraph_preview_rejects_wrong_port_name(tmp_path, registry):
     csv_path = tmp_path / "d.csv"
     csv_path.write_text("a,label\n1,0\n")

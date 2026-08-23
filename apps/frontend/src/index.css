@@ -130,6 +130,23 @@ body {
   gap: 6px;
 }
 
+.param-control-with-hint {
+  margin-bottom: 8px;
+}
+
+.param-control-with-hint .param-control {
+  margin-bottom: 2px;
+}
+
+.param-hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+.param-hint-error {
+  color: #b00020;
+}
+
 .error-banner {
   color: #b00020;
   padding: 4px 16px;

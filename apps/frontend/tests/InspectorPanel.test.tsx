@@ -239,10 +239,11 @@ describe('InspectorPanel', () => {
     expect(onParamChange).toHaveBeenCalledWith('n1', 'target_column', 'label')
   })
 
-  it('renders a disabled select with the error message when the dynamic-options fetch fails', () => {
+  it('falls back to an enabled text input with the error message when the dynamic-options fetch fails', async () => {
     vi.mocked(dynamicOptionsModule.useDynamicOptions).mockReturnValue({
       target_column: { status: 'error', message: 'bad path' },
     })
+    const onParamChange = vi.fn()
     const spec: ParamSpec = {
       name: 'target_column',
       type: 'select',
@@ -251,10 +252,51 @@ describe('InspectorPanel', () => {
       options_source: { input_port: 'train_table' },
     }
     const node = nodeWithParam(spec, '')
-    render(<InspectorPanel node={node} nodes={[node]} edges={[]} onParamChange={vi.fn()} onPreview={vi.fn()} />)
+    render(<Harness initialNode={node} onParamChange={onParamChange} />)
 
-    expect(screen.getByLabelText('Target Column')).toBeDisabled()
+    const input = screen.getByLabelText('Target Column')
+    expect(input.tagName).toBe('INPUT')
+    expect(input).not.toBeDisabled()
     expect(screen.getByText('bad path')).toBeInTheDocument()
+
+    await userEvent.type(input, 'x')
+    expect(onParamChange).toHaveBeenCalledWith('n1', 'target_column', 'x')
+  })
+
+  it('clears the stored value when it drops out of the resolved dynamic options', () => {
+    vi.mocked(dynamicOptionsModule.useDynamicOptions).mockReturnValue({
+      target_column: { status: 'ready', options: ['new_col', 'label'] },
+    })
+    const onParamChange = vi.fn()
+    const spec: ParamSpec = {
+      name: 'target_column',
+      type: 'select',
+      label: 'Target Column',
+      default: '',
+      options_source: { input_port: 'train_table' },
+    }
+    const node = nodeWithParam(spec, 'old_col')
+    render(<InspectorPanel node={node} nodes={[node]} edges={[]} onParamChange={onParamChange} onPreview={vi.fn()} />)
+
+    expect(onParamChange).toHaveBeenCalledWith('n1', 'target_column', '')
+  })
+
+  it('does not clear the stored value when it is still among the resolved dynamic options', () => {
+    vi.mocked(dynamicOptionsModule.useDynamicOptions).mockReturnValue({
+      target_column: { status: 'ready', options: ['old_col', 'label'] },
+    })
+    const onParamChange = vi.fn()
+    const spec: ParamSpec = {
+      name: 'target_column',
+      type: 'select',
+      label: 'Target Column',
+      default: '',
+      options_source: { input_port: 'train_table' },
+    }
+    const node = nodeWithParam(spec, 'old_col')
+    render(<InspectorPanel node={node} nodes={[node]} edges={[]} onParamChange={onParamChange} onPreview={vi.fn()} />)
+
+    expect(onParamChange).not.toHaveBeenCalled()
   })
 
   it('renders a single "Preview Output" button for a node with one Table output and calls onPreview', async () => {

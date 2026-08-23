@@ -20,12 +20,20 @@ export function SelectParam({ spec, value, onChange, dynamicOptions }: ParamCont
         </label>
       )
     }
-    const placeholder =
-      dynamicOptions.status === 'disconnected'
-        ? 'Connect input to see columns'
-        : dynamicOptions.status === 'loading'
-          ? 'Loading columns…'
-          : dynamicOptions.message
+    if (dynamicOptions.status === 'error') {
+      // A preview failure (transient engine error, a slow/huge upstream,
+      // etc.) shouldn't lock the user out of setting this param — fall
+      // back to plain manual text entry, same as before this param had a
+      // dynamic dropdown, with the error surfaced as a hint rather than a
+      // blocker.
+      return (
+        <div className="param-control-with-hint">
+          <TextParam spec={spec} value={value} onChange={onChange} />
+          <p className="param-hint param-hint-error">{dynamicOptions.message}</p>
+        </div>
+      )
+    }
+    const placeholder = dynamicOptions.status === 'disconnected' ? 'Connect input to see columns' : 'Loading columns…'
     return (
       <label className="param-control">
         <span>{spec.label}</span>

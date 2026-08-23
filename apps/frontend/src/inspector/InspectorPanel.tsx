@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { ComponentType } from 'react'
 import type { ParamSpec } from '../api/types'
 import type { PipelineEdge, PipelineNode } from '../canvas/types'
@@ -29,6 +30,27 @@ export interface InspectorPanelProps {
 
 export function InspectorPanel({ node, nodes, edges, onParamChange, onPreview }: InspectorPanelProps) {
   const dynamicOptions = useDynamicOptions(node, nodes, edges)
+
+  // When a dynamic select's options resolve, if the node's CURRENT stored
+  // value for that param is no longer among the new options (e.g. the
+  // upstream table's columns changed), clear it so the UI (a placeholder)
+  // and the stored param value don't silently disagree. Done here, not in
+  // useDynamicOptions, because InspectorPanel already has both the current
+  // param value and onParamChange in scope — threading them into the hook
+  // just to call back out through it would be a bigger, less direct change.
+  useEffect(() => {
+    if (!node) return
+    for (const spec of node.data.manifest.params) {
+      if (!spec.options_source) continue
+      const options = dynamicOptions[spec.name]
+      if (!options || options.status !== 'ready') continue
+      const currentValue = node.data.params[spec.name]
+      if (typeof currentValue === 'string' && currentValue !== '' && !options.options.includes(currentValue)) {
+        onParamChange(node.id, spec.name, '')
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node, dynamicOptions, onParamChange])
 
   if (!node) {
     return (

@@ -51,6 +51,46 @@ describe('usePreview', () => {
     })
   })
 
+  it('ignores a stale first response that resolves after a second request', async () => {
+    let resolveFirst!: (value: { columns: []; rows: []; total_rows: number }) => void
+    const first = new Promise<{ columns: []; rows: []; total_rows: number }>((resolve) => {
+      resolveFirst = resolve
+    })
+    vi.mocked(client.previewSubgraph).mockReturnValueOnce(first)
+    vi.mocked(client.previewSubgraph).mockResolvedValueOnce({
+      columns: [{ name: 'b', dtype: 'int64' }],
+      rows: [[2]],
+      total_rows: 1,
+    })
+    const { result } = renderHook(() => usePreview())
+
+    act(() => {
+      result.current.runPreview(ir, 'n1', 'table')
+    })
+    act(() => {
+      result.current.runPreview(ir, 'n2', 'table')
+    })
+
+    await waitFor(() => {
+      expect(result.current.state).toEqual({
+        status: 'success',
+        data: { columns: [{ name: 'b', dtype: 'int64' }], rows: [[2]], total_rows: 1 },
+      })
+    })
+
+    // The first request resolves last — it must NOT clobber the second
+    // request's already-displayed result.
+    await act(async () => {
+      resolveFirst({ columns: [], rows: [], total_rows: 0 })
+      await Promise.resolve()
+    })
+
+    expect(result.current.state).toEqual({
+      status: 'success',
+      data: { columns: [{ name: 'b', dtype: 'int64' }], rows: [[2]], total_rows: 1 },
+    })
+  })
+
   it('reset returns to idle', async () => {
     vi.mocked(client.previewSubgraph).mockResolvedValueOnce({ columns: [], rows: [], total_rows: 0 })
     const { result } = renderHook(() => usePreview())

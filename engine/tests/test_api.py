@@ -209,6 +209,24 @@ def test_preview_endpoint_returns_columns_rows_and_total(client, tmp_path):
     assert len(body["rows"]) == 10
 
 
+def test_preview_endpoint_handles_missing_values(client, tmp_path):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("age,label,note\n25,yes,hello\n,no,\n31,yes,world\n")
+    pipeline = {
+        "nodes": [{"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}}],
+        "edges": [],
+    }
+
+    response = client.post(
+        "/pipeline/preview",
+        json={"pipeline": pipeline, "target_node_id": "n1", "port": "table"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["rows"][1][0] is None
+
+
 def test_preview_endpoint_returns_422_for_long_running_ancestor(client):
     pipeline = {
         "nodes": [
