@@ -573,3 +573,58 @@ def test_executor_and_exported_script_agree_with_roc_auc_node(tmp_path, registry
     script_auc = float(match.group(1))
 
     assert executor_auc == pytest.approx(script_auc, abs=1e-9)
+
+
+def test_executor_and_exported_script_agree_with_random_forest_tuning(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,b,label\n" + "\n".join(f"{i},{i * 2},{i % 2}" for i in range(60)))
+
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+                {
+                    "id": "n3",
+                    "type": "sklearn_models.random_forest_tuning",
+                    "params": {
+                        "target_column": "label",
+                        "n_estimators_options": "10,20",
+                        "max_depth_options": "3,None",
+                        "cv": 3,
+                        "scoring": "accuracy",
+                        "random_state": 42,
+                    },
+                },
+            ],
+            "edges": [
+                {"from": "n1.table", "to": "n2.table"},
+                {"from": "n2.train", "to": "n3.train_table"},
+            ],
+        }
+    )
+
+    context = execute_pipeline(ir, registry)
+    executor_best_score = context["n3.metrics"]["best_score"]
+
+    code = generate_code(ir, registry)
+    script_path = tmp_path / "exported.py"
+    script_path.write_text(code)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    match = re.search(r"'best_score':\s*([0-9.eE+-]+)", result.stdout)
+    assert match is not None, f"no best_score found in script output:\n{result.stdout}"
+    script_best_score = float(match.group(1))
+
+    assert executor_best_score == pytest.approx(script_best_score, abs=1e-9)
