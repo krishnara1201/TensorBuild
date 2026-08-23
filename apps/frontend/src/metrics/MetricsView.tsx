@@ -8,6 +8,12 @@ function isConfusionMatrix(
   return Array.isArray(metrics.confusion_matrix) && Array.isArray(metrics.labels)
 }
 
+function isRocCurve(
+  metrics: Record<string, unknown>,
+): metrics is Record<string, unknown> & { fpr: number[]; tpr: number[] } {
+  return Array.isArray(metrics.fpr) && Array.isArray(metrics.tpr)
+}
+
 function formatKey(key: string): string {
   return key
     .split('_')
@@ -46,6 +52,29 @@ export function MetricsView({ metrics }: MetricsViewProps) {
           </tbody>
         </table>
         {Object.keys(rest).length > 0 && <MetricsView metrics={rest} />}
+      </div>
+    )
+  }
+
+  if (isRocCurve(metrics)) {
+    const { fpr, tpr } = metrics
+    const rest = Object.fromEntries(
+      Object.entries(metrics).filter(([key]) => key !== 'fpr' && key !== 'tpr'),
+    )
+    const size = 200
+    const points = fpr.map((x, i) => `${x * size},${size - tpr[i] * size}`).join(' ')
+    return (
+      <div className="metrics-view">
+        {Object.keys(rest).length > 0 && <MetricsView metrics={rest} />}
+        <svg
+          className="roc-curve-chart"
+          viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label="ROC curve"
+        >
+          <line x1={0} y1={size} x2={size} y2={0} className="roc-curve-diagonal" />
+          <polyline points={points} className="roc-curve-line" />
+        </svg>
       </div>
     )
   }

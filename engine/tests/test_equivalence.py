@@ -518,3 +518,58 @@ def test_executor_and_exported_script_agree_with_cnn_pipeline(tmp_path, registry
     assert executor_accuracy == pytest.approx(script_accuracy, abs=1e-6)
     assert executor_train_loss == pytest.approx(script_train_loss, abs=1e-6)
     assert executor_val_loss == pytest.approx(script_val_loss, abs=1e-6)
+
+
+def test_executor_and_exported_script_agree_with_roc_auc_node(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,b,label\n" + "\n".join(f"{i},{i * 2},{i % 2}" for i in range(60)))
+
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+                {
+                    "id": "n3",
+                    "type": "sklearn_models.logistic_regression",
+                    "params": {"target_column": "label", "max_iter": 1000, "random_state": 42},
+                },
+                {
+                    "id": "n4",
+                    "type": "evaluation.roc_auc",
+                    "params": {"target_column": "label"},
+                },
+            ],
+            "edges": [
+                {"from": "n1.table", "to": "n2.table"},
+                {"from": "n2.train", "to": "n3.train_table"},
+                {"from": "n3.model", "to": "n4.model"},
+                {"from": "n2.test", "to": "n4.test_table"},
+            ],
+        }
+    )
+
+    context = execute_pipeline(ir, registry)
+    executor_auc = context["n4.metrics"]["roc_auc"]
+
+    code = generate_code(ir, registry)
+    script_path = tmp_path / "exported.py"
+    script_path.write_text(code)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    match = re.search(r"'roc_auc':\s*([0-9.]+)", result.stdout)
+    assert match is not None, f"no roc_auc found in script output:\n{result.stdout}"
+    script_auc = float(match.group(1))
+
+    assert executor_auc == pytest.approx(script_auc, abs=1e-9)

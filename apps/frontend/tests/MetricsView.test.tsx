@@ -34,6 +34,26 @@ describe('MetricsView', () => {
     expect(screen.getAllByText('1')).toHaveLength(2)
   })
 
+  it('renders an ROC curve as an SVG line chart alongside the AUC score', () => {
+    render(
+      <MetricsView
+        metrics={{
+          roc_auc: 0.9231,
+          fpr: [0, 0.2, 1],
+          tpr: [0, 0.8, 1],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Roc Auc')).toBeInTheDocument()
+    expect(screen.getByText('0.9231')).toBeInTheDocument()
+
+    const svg = screen.getByRole('img', { name: 'ROC curve' })
+    const polyline = svg.querySelector('polyline')
+    expect(polyline).not.toBeNull()
+    expect(polyline?.getAttribute('points')?.trim().split(/\s+/)).toHaveLength(3)
+  })
+
   it('falls back to a formatted block for an unrecognized metrics shape', () => {
     render(<MetricsView metrics={{ weird: { nested: true } }} />)
 

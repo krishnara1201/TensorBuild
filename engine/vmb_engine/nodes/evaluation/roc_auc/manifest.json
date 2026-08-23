@@ -1,7 +1,7 @@
 {
-    "id": "evaluation.evaluate_classifier",
+    "id": "evaluation.roc_auc",
     "category": "Evaluation",
-    "label": "Evaluate Classifier",
+    "label": "ROC AUC",
     "inputs": [
         {"name": "model", "type": "Model"},
         {"name": "test_table", "type": "Table"}
@@ -14,13 +14,6 @@
             "label": "Target Column",
             "default": "",
             "options_source": {"input_port": "test_table"}
-        },
-        {
-            "name": "average",
-            "type": "select",
-            "label": "Averaging",
-            "default": "weighted",
-            "options": ["weighted", "macro", "micro"]
         }
     ]
 }

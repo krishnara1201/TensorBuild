@@ -270,3 +270,22 @@ body {
   border-radius: 4px;
   overflow-x: auto;
 }
+
+.roc-curve-chart {
+  width: 200px;
+  height: 200px;
+  background: #f6f6f6;
+  border-radius: 4px;
+}
+
+.roc-curve-diagonal {
+  stroke: #bbb;
+  stroke-width: 1;
+  stroke-dasharray: 4;
+}
+
+.roc-curve-line {
+  fill: none;
+  stroke: #2e7d32;
+  stroke-width: 2;
+}
