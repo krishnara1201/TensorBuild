@@ -1122,7 +1122,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InspectorPanel } from '../src/inspector/InspectorPanel'
 import * as dynamicOptionsModule from '../src/inspector/useDynamicOptions'
-import type { PipelineEdge, PipelineNode } from '../src/canvas/types'
+import type { PipelineNode } from '../src/canvas/types'
 import type { NodeManifest, ParamSpec } from '../src/api/types'
 
 vi.mock('../src/inspector/useDynamicOptions', async () => {
@@ -1376,8 +1376,6 @@ describe('InspectorPanel', () => {
   })
 })
 ```
-
-(Note: `PipelineEdge` import removed since this file no longer builds edge fixtures directly — every test passes `edges={[]}`.)
 
 - [ ] **Step 2: Run tests to verify they fail**
 
