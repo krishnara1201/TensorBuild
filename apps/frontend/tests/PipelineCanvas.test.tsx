@@ -361,3 +361,116 @@ describe('PipelineCanvas ImageBatch port coloring', () => {
     expect(handles[0]?.style.background).not.toBe('rgb(155, 89, 182)') // not Layer
   })
 })
+
+describe('PipelineCanvas node status', () => {
+  it('applies a status class to a node based on the nodeStatuses map', () => {
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [csvManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+    }
+
+    const { container } = render(
+      <PipelineCanvas
+        nodes={[node]}
+        edges={[]}
+        onNodesChange={noop}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+        nodeStatuses={{ n1: 'running' }}
+      />,
+    )
+
+    expect(container.querySelector('.pipeline-node-running')).not.toBeNull()
+  })
+
+  it('defaults an unlisted node to the idle status class', () => {
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [csvManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+    }
+
+    const { container } = render(
+      <PipelineCanvas
+        nodes={[node]}
+        edges={[]}
+        onNodesChange={noop}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+      />,
+    )
+
+    expect(container.querySelector('.pipeline-node-idle')).not.toBeNull()
+  })
+
+  it('marks an edge animated when its target node is running', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 140,
+      height: 56,
+      top: 0,
+      left: 0,
+      right: 140,
+      bottom: 56,
+      toJSON: () => {},
+    })
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [csvManifest],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+
+    const nodeA: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+      measured: { width: 140, height: 56 },
+      handles: [{ id: 'table', type: 'source', position: Position.Right, x: 140, y: 24, width: 1, height: 1 }],
+    }
+    const nodeB: PipelineNode = {
+      id: 'n2',
+      type: 'pipelineNode',
+      position: { x: 200, y: 0 },
+      data: { manifest: csvManifest, params: {} },
+      measured: { width: 140, height: 56 },
+      handles: [{ id: 'table', type: 'target', position: Position.Left, x: 0, y: 24, width: 1, height: 1 }],
+    }
+    const edge: PipelineEdge = { id: 'e1', source: 'n1', target: 'n2', sourceHandle: 'table', targetHandle: 'table' }
+
+    const { container } = render(
+      <PipelineCanvas
+        nodes={[nodeA, nodeB]}
+        edges={[edge]}
+        onNodesChange={noop}
+        onEdgesChange={noop}
+        setNodes={noop}
+        setEdges={noop}
+        onSelectNode={noop}
+        nodeStatuses={{ n2: 'running' }}
+      />,
+    )
+
+    await screen.findByRole('button', { name: /delete connection/i })
+
+    expect(container.querySelector('.react-flow__edge.animated')).not.toBeNull()
+  })
+})

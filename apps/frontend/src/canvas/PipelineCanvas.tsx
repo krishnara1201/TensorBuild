@@ -17,11 +17,11 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
 } from '@xyflow/react'
-import { useCallback, useRef, type Dispatch, type DragEvent, type SetStateAction } from 'react'
+import { useCallback, useMemo, useRef, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import type { Port } from '../api/types'
 import { useNodes } from '../api/client'
 import { createPipelineNode } from './nodeFactory'
-import type { PipelineEdge, PipelineNode, PipelineNodeData } from './types'
+import type { NodeRunStatus, PipelineEdge, PipelineNode, PipelineNodeData } from './types'
 import { isValidConnection as validateConnection } from './validation'
 
 const PORT_TOP_OFFSET = 32
@@ -96,12 +96,12 @@ function SourcePort({ port, top }: { port: Port; top: number }) {
 }
 
 function PipelineNodeRenderer({ id, data }: NodeProps<PipelineNode>) {
-  const { manifest } = data as PipelineNodeData
+  const { manifest, status = 'idle' } = data as PipelineNodeData
   const { deleteElements } = useReactFlow()
   const portRows = Math.max(manifest.inputs.length, manifest.outputs.length, 1)
   const minHeight = PORT_TOP_OFFSET + portRows * PORT_ROW_HEIGHT + NODE_MIN_HEIGHT_PADDING
   return (
-    <div className="pipeline-node" style={{ minHeight }}>
+    <div className={`pipeline-node pipeline-node-${status}`} style={{ minHeight }}>
       <button
         type="button"
         aria-label="Delete node"
@@ -188,6 +188,7 @@ export interface PipelineCanvasProps {
   setNodes: Dispatch<SetStateAction<PipelineNode[]>>
   setEdges: Dispatch<SetStateAction<PipelineEdge[]>>
   onSelectNode: (nodeId: string | null) => void
+  nodeStatuses?: Record<string, NodeRunStatus>
 }
 
 function PipelineCanvasInner({
@@ -198,10 +199,20 @@ function PipelineCanvasInner({
   setNodes,
   setEdges,
   onSelectNode,
+  nodeStatuses = {},
 }: PipelineCanvasProps) {
   const { data: manifests } = useNodes()
   const { screenToFlowPosition } = useReactFlow()
   const nodeIdCounter = useRef(0)
+
+  const displayNodes = useMemo(
+    () => nodes.map((node) => ({ ...node, data: { ...node.data, status: nodeStatuses[node.id] ?? 'idle' } })),
+    [nodes, nodeStatuses],
+  )
+  const displayEdges = useMemo(
+    () => edges.map((edge) => ({ ...edge, animated: nodeStatuses[edge.target] === 'running' })),
+    [edges, nodeStatuses],
+  )
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -241,8 +252,8 @@ function PipelineCanvasInner({
   return (
     <div className="pipeline-canvas" onDrop={handleDrop} onDragOver={handleDragOver}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={displayNodes}
+        edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
