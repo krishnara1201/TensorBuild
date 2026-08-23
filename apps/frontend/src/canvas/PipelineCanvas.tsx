@@ -263,6 +263,7 @@ function PipelineCanvasInner({
         defaultEdgeOptions={{ type: 'deleteable' }}
         onNodeClick={(_, node) => onSelectNode(node.id)}
         onPaneClick={() => onSelectNode(null)}
+        colorMode="dark"
         fitView
       >
         <Background />
