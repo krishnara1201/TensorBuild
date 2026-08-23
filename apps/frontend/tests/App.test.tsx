@@ -1,9 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEffect } from 'react'
 import { App } from '../src/App'
 import * as client from '../src/api/client'
 import * as trainingRun from '../src/training/useTrainingRun'
+
+// Vitest hoists `vi.mock(...)` calls above regular imports/declarations, so
+// a mutable flag referenced inside a factory must be created via
+// `vi.hoisted` — a plain `let` declared below would still be in its
+// temporal dead zone when the hoisted factory first runs.
+const stubNodeFlag = vi.hoisted(() => ({ shouldInject: false }))
 
 vi.mock('../src/api/client', async () => {
   const actual = await vi.importActual<typeof import('../src/api/client')>('../src/api/client')
@@ -25,6 +32,56 @@ vi.mock('../src/inspector/InspectorPanel', () => ({
   ),
 }))
 
+// Stub out the real canvas (ReactFlow) so we can (a) inject a single fake
+// node into App's real `nodes` state via the real `setNodes` prop it's
+// given, on demand via `stubNodeFlag.shouldInject`, and (b) read back the
+// exact `nodeStatuses` map App computed for that node — the thing Fix #5
+// (sync-run glow) actually changes. Only the dedicated glow test below
+// turns injection on; every other test leaves it off (empty canvas, as
+// before this mock existed).
+vi.mock('../src/canvas/PipelineCanvas', () => ({
+  PipelineCanvas: ({
+    nodeStatuses,
+    setNodes,
+  }: {
+    nodeStatuses: Record<string, string>
+    setNodes: (nodes: unknown[]) => void
+  }) => {
+    useEffect(() => {
+      if (stubNodeFlag.shouldInject) {
+        setNodes([
+          {
+            id: 'n1',
+            type: 'pipelineNode',
+            position: { x: 0, y: 0 },
+            data: {
+              manifest: {
+                id: 'data.csv_loader',
+                category: 'Data',
+                label: 'CSV Loader',
+                inputs: [],
+                outputs: [],
+                params: [],
+                long_running: false,
+              },
+              params: {},
+            },
+          },
+        ])
+      }
+      // Run once per mount only.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+    return (
+      <div data-testid="canvas-stub">
+        {Object.entries(nodeStatuses).map(([id, status]) => (
+          <div key={id} data-testid={`node-status-${id}`}>{`${id}:${status}`}</div>
+        ))}
+      </div>
+    )
+  },
+}))
+
 function mockMutation(overrides: Partial<ReturnType<typeof client.useRunPipeline>>) {
   return {
     mutate: vi.fn(),
@@ -41,6 +98,10 @@ describe('App', () => {
       typeof client.useNodes
     >)
     vi.mocked(trainingRun.useTrainingRun).mockReturnValue({ status: 'connecting', history: [] })
+  })
+
+  afterEach(() => {
+    stubNodeFlag.shouldInject = false
   })
 
   it('renders the app heading', () => {
@@ -134,5 +195,82 @@ describe('App', () => {
     await userEvent.click(screen.getByText('Fake preview trigger'))
 
     expect(await screen.findByText('Showing 0 of 0 rows')).toBeInTheDocument()
+  })
+
+  it('shows async run completion metrics (from the training WebSocket) on the Results tab', () => {
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+    vi.mocked(trainingRun.useTrainingRun).mockReturnValue({
+      status: 'complete',
+      history: [],
+      metrics: { 'n5.metrics': { accuracy: 0.87 } },
+    })
+
+    render(<App />)
+
+    expect(screen.getByText(/n5\.metrics/)).toBeInTheDocument()
+    expect(screen.getByText('Accuracy')).toBeInTheDocument()
+    expect(screen.getByText('0.8700')).toBeInTheDocument()
+  })
+
+  it('shows a streamed training error (node_error/connection lost) on the Results tab', async () => {
+    const runMutate = vi.fn(
+      (_ir, options?: { onSuccess?: (outcome: { kind: 'async'; runId: string }) => void }) =>
+        options?.onSuccess?.({ kind: 'async', runId: 'run-1' }),
+    )
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ mutate: runMutate }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+    vi.mocked(trainingRun.useTrainingRun).mockReturnValue({
+      status: 'error',
+      history: [],
+      error: 'node explode',
+      nodeId: 'n3',
+    })
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
+
+    expect(screen.getByText('node explode')).toBeInTheDocument()
+  })
+
+  it('resets activeRunId when a new run starts, so a stale training section from a prior async run does not persist', async () => {
+    const runMutate = vi.fn(
+      (_ir, options?: { onSuccess?: (outcome: { kind: 'async'; runId: string }) => void }) =>
+        options?.onSuccess?.({ kind: 'async', runId: 'run-1' }),
+    )
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ mutate: runMutate }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+    vi.mocked(trainingRun.useTrainingRun).mockReturnValue({ status: 'complete', history: [], metrics: {} })
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    expect(screen.getByText('Training complete')).toBeInTheDocument()
+
+    // A fresh run — this time resolving synchronously, like a plain
+    // sklearn/data pipeline — must clear activeRunId as its first action,
+    // otherwise the previous async run's training section stays visible
+    // even though no async run is active anymore.
+    runMutate.mockImplementationOnce(
+      (_ir, options?: { onSuccess?: (outcome: { kind: 'sync'; metrics: Record<string, unknown> }) => void }) =>
+        options?.onSuccess?.({ kind: 'sync', metrics: {} }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
+
+    expect(screen.queryByText('Training complete')).not.toBeInTheDocument()
+  })
+
+  it('marks every canvas node "running" while a synchronous run is pending, and clears it once settled', () => {
+    stubNodeFlag.shouldInject = true
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ isPending: true }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    const { rerender } = render(<App />)
+
+    expect(screen.getByTestId('node-status-n1')).toHaveTextContent('n1:running')
+
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ isPending: false }))
+    rerender(<App />)
+
+    expect(screen.queryByTestId('node-status-n1')).not.toBeInTheDocument()
   })
 })

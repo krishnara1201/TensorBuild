@@ -35,11 +35,11 @@ export function OutputPanel({ activeTab, onTabChange, runMetrics, runError, prev
           Data Preview
         </button>
       </div>
-      <div className="output-panel-content">
+      <div className="output-panel-content" key={activeTab}>
         {activeTab === 'results' && (
           <>
             {runError && <p className="error-banner">{runError}</p>}
-            {runMetrics && (
+            {runMetrics && Object.keys(runMetrics).length > 0 && (
               <div className="metrics-list">
                 {Object.entries(runMetrics).map(([ref, value]) => (
                   <div key={ref} className="metrics-block">
@@ -49,7 +49,9 @@ export function OutputPanel({ activeTab, onTabChange, runMetrics, runError, prev
                 ))}
               </div>
             )}
-            {!runError && !runMetrics && <p className="output-panel-empty">Run the pipeline to see results here.</p>}
+            {!runError && (!runMetrics || Object.keys(runMetrics).length === 0) && (
+              <p className="output-panel-empty">Run the pipeline to see results here.</p>
+            )}
           </>
         )}
         {activeTab === 'preview' && <PreviewPanel state={previewState} />}

@@ -43,6 +43,7 @@ export function App() {
   )
 
   const handleRun = useCallback(() => {
+    setActiveRunId(null)
     runMutation.mutate(toIR(nodes, edges), {
       onSuccess: (outcome) => {
         if (outcome.kind === 'async') {
@@ -66,14 +67,28 @@ export function App() {
     [nodes, edges, preview],
   )
 
-  const nodeStatuses = useMemo(
-    () => (activeRunId ? nodeStatusesFromTrainingState(trainingState) : {}),
-    [activeRunId, trainingState],
-  )
+  const nodeStatuses = useMemo(() => {
+    if (activeRunId) return nodeStatusesFromTrainingState(trainingState)
+    if (runMutation.isPending) {
+      return Object.fromEntries(nodes.map((node) => [node.id, 'running' as const]))
+    }
+    return {}
+  }, [activeRunId, trainingState, runMutation.isPending, nodes])
 
   const isRunning =
     runMutation.isPending ||
     (activeRunId !== null && (trainingState.status === 'connecting' || trainingState.status === 'running'))
+
+  const resultMetrics =
+    runMutation.data?.kind === 'sync'
+      ? runMutation.data.metrics
+      : trainingState.status === 'complete'
+        ? trainingState.metrics
+        : undefined
+
+  const runError =
+    runMutation.error?.message ??
+    (activeRunId && trainingState.status === 'error' ? trainingState.error : null)
 
   return (
     <div className="app-layout">
@@ -116,14 +131,14 @@ export function App() {
           <OutputPanel
             activeTab={outputTab}
             onTabChange={setOutputTab}
-            runMetrics={runMutation.data?.kind === 'sync' ? runMutation.data.metrics : undefined}
-            runError={runMutation.error?.message ?? null}
+            runMetrics={resultMetrics}
+            runError={runError}
             previewState={preview.state}
           />
         }
         visualizations={
           <VisualizationsPanel
-            runMetrics={runMutation.data?.kind === 'sync' ? runMutation.data.metrics : undefined}
+            runMetrics={resultMetrics}
             previewData={preview.state.status === 'success' ? preview.state.data : undefined}
             trainingState={activeRunId ? trainingState : undefined}
           />

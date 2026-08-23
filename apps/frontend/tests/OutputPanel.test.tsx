@@ -18,6 +18,20 @@ describe('OutputPanel', () => {
     expect(screen.getByText('Run the pipeline to see results here.')).toBeInTheDocument()
   })
 
+  it('shows the empty-results message (not a blank metrics list) when runMetrics is a truthy empty object', () => {
+    render(
+      <OutputPanel
+        activeTab="results"
+        onTabChange={vi.fn()}
+        runMetrics={{}}
+        runError={null}
+        previewState={{ status: 'idle' }}
+      />,
+    )
+
+    expect(screen.getByText('Run the pipeline to see results here.')).toBeInTheDocument()
+  })
+
   it('renders run metrics on the Results tab', () => {
     render(
       <OutputPanel
