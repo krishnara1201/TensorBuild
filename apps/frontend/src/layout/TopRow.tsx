@@ -10,15 +10,21 @@ export interface TopRowProps {
 export function TopRow({ palette, canvas, inspector }: TopRowProps) {
   return (
     <PanelGroup direction="horizontal" autoSaveId="vmb-layout-top">
-      <Panel id="palette" defaultSize={15} minSize={10} className="layout-panel">
+      <Panel id="palette" defaultSize={15} minSize={10} className="layout-panel" style={{ overflow: 'auto' }}>
         {palette}
       </Panel>
       <PanelResizeHandle className="layout-resize-handle" />
-      <Panel id="canvas" defaultSize={60} minSize={30} className="layout-panel layout-panel-canvas">
+      <Panel
+        id="canvas"
+        defaultSize={60}
+        minSize={30}
+        className="layout-panel layout-panel-canvas"
+        style={{ overflow: 'auto' }}
+      >
         {canvas}
       </Panel>
       <PanelResizeHandle className="layout-resize-handle" />
-      <Panel id="inspector" defaultSize={25} minSize={15} className="layout-panel">
+      <Panel id="inspector" defaultSize={25} minSize={15} className="layout-panel" style={{ overflow: 'auto' }}>
         {inspector}
       </Panel>
     </PanelGroup>

@@ -9,11 +9,17 @@ export interface BottomRowProps {
 export function BottomRow({ output, visualizations }: BottomRowProps) {
   return (
     <PanelGroup direction="horizontal" autoSaveId="vmb-layout-bottom">
-      <Panel id="output" defaultSize={50} minSize={20} className="layout-panel">
+      <Panel id="output" defaultSize={50} minSize={20} className="layout-panel" style={{ overflow: 'auto' }}>
         {output}
       </Panel>
       <PanelResizeHandle className="layout-resize-handle" />
-      <Panel id="visualizations" defaultSize={50} minSize={20} className="layout-panel">
+      <Panel
+        id="visualizations"
+        defaultSize={50}
+        minSize={20}
+        className="layout-panel"
+        style={{ overflow: 'auto' }}
+      >
         {visualizations}
       </Panel>
     </PanelGroup>

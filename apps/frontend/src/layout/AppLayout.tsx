@@ -18,7 +18,7 @@ export function AppLayout({ palette, canvas, inspector, output, visualizations }
         <Panel id="top" defaultSize={65} minSize={30}>
           <TopRow palette={palette} canvas={canvas} inspector={inspector} />
         </Panel>
-        <PanelResizeHandle className="layout-resize-handle layout-resize-handle-horizontal" />
+        <PanelResizeHandle className="layout-resize-handle" />
         <Panel id="bottom" defaultSize={35} minSize={15}>
           <BottomRow output={output} visualizations={visualizations} />
         </Panel>
