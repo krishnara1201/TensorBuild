@@ -256,4 +256,77 @@ describe('InspectorPanel', () => {
     expect(screen.getByLabelText('Target Column')).toBeDisabled()
     expect(screen.getByText('bad path')).toBeInTheDocument()
   })
+
+  it('renders a single "Preview Output" button for a node with one Table output and calls onPreview', async () => {
+    const onPreview = vi.fn()
+    const manifest: NodeManifest = {
+      id: 'data.csv_loader',
+      category: 'Data',
+      label: 'CSV Loader',
+      inputs: [],
+      outputs: [{ name: 'table', type: 'Table' }],
+      params: [],
+      long_running: false,
+    }
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest, params: {} },
+    }
+    render(<InspectorPanel node={node} nodes={[node]} edges={[]} onParamChange={vi.fn()} onPreview={onPreview} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Preview Output' }))
+
+    expect(onPreview).toHaveBeenCalledWith('n1', 'table')
+  })
+
+  it('renders two labeled preview buttons for a node with two Table outputs', () => {
+    const manifest: NodeManifest = {
+      id: 'preprocessing.standardize',
+      category: 'Preprocessing',
+      label: 'Standardize',
+      inputs: [
+        { name: 'train_table', type: 'Table' },
+        { name: 'test_table', type: 'Table' },
+      ],
+      outputs: [
+        { name: 'train', type: 'Table' },
+        { name: 'test', type: 'Table' },
+      ],
+      params: [],
+      long_running: false,
+    }
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest, params: {} },
+    }
+    render(<InspectorPanel node={node} nodes={[node]} edges={[]} onParamChange={vi.fn()} onPreview={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Preview train' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Preview test' })).toBeInTheDocument()
+  })
+
+  it('renders no preview button for a node with no Table output', () => {
+    const manifest: NodeManifest = {
+      id: 'sklearn_models.kmeans',
+      category: 'Models (sklearn)',
+      label: 'KMeans',
+      inputs: [{ name: 'train_table', type: 'Table' }],
+      outputs: [{ name: 'model', type: 'Model' }],
+      params: [],
+      long_running: false,
+    }
+    const node: PipelineNode = {
+      id: 'n1',
+      type: 'pipelineNode',
+      position: { x: 0, y: 0 },
+      data: { manifest, params: {} },
+    }
+    render(<InspectorPanel node={node} nodes={[node]} edges={[]} onParamChange={vi.fn()} onPreview={vi.fn()} />)
+
+    expect(screen.queryByRole('button', { name: /preview/i })).not.toBeInTheDocument()
+  })
 })

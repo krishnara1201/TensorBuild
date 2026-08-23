@@ -6,7 +6,10 @@ import type { PipelineEdge, PipelineNode } from './canvas/types'
 import { CodeViewPanel } from './codeview/CodeViewPanel'
 import { InspectorPanel } from './inspector/InspectorPanel'
 import { toIR } from './ir/convert'
+import { MetricsView } from './metrics/MetricsView'
 import { NodePalette } from './palette/NodePalette'
+import { PreviewPanel } from './preview/PreviewPanel'
+import { usePreview } from './preview/usePreview'
 import { TrainingMonitor } from './training/TrainingMonitor'
 
 export function App() {
@@ -15,6 +18,8 @@ export function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isCodeViewOpen, setCodeViewOpen] = useState(false)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<{ nodeId: string; port: string } | null>(null)
+  const preview = usePreview()
 
   const runMutation = useRunPipeline()
   const codeMutation = useGetCode()
@@ -49,6 +54,19 @@ export function App() {
       onSuccess: () => setCodeViewOpen(true),
     })
   }, [nodes, edges, codeMutation])
+
+  const handlePreview = useCallback(
+    (nodeId: string, port: string) => {
+      setPreviewTarget({ nodeId, port })
+      preview.runPreview(toIR(nodes, edges), nodeId, port)
+    },
+    [nodes, edges, preview],
+  )
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewTarget(null)
+    preview.reset()
+  }, [preview])
 
   return (
     <div className="app-layout">
@@ -90,7 +108,7 @@ export function App() {
           nodes={nodes}
           edges={edges}
           onParamChange={handleParamChange}
-          onPreview={() => {}}
+          onPreview={handlePreview}
         />
       </div>
 
@@ -98,6 +116,7 @@ export function App() {
         <CodeViewPanel code={codeMutation.data.code} onClose={() => setCodeViewOpen(false)} />
       )}
       {activeRunId && <TrainingMonitor runId={activeRunId} onClose={() => setActiveRunId(null)} />}
+      {previewTarget && <PreviewPanel state={preview.state} onClose={handleClosePreview} />}
     </div>
   )
 }

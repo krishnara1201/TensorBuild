@@ -6,7 +6,7 @@ import * as client from '../src/api/client'
 
 vi.mock('../src/api/client', async () => {
   const actual = await vi.importActual<typeof import('../src/api/client')>('../src/api/client')
-  return { ...actual, useNodes: vi.fn(), useRunPipeline: vi.fn(), useGetCode: vi.fn() }
+  return { ...actual, useNodes: vi.fn(), useRunPipeline: vi.fn(), useGetCode: vi.fn(), previewSubgraph: vi.fn() }
 })
 
 vi.mock('../src/training/TrainingMonitor', () => ({
@@ -15,6 +15,25 @@ vi.mock('../src/training/TrainingMonitor', () => ({
       <p>Training monitor for {runId}</p>
       <button type="button" onClick={onClose}>
         Close training monitor
+      </button>
+    </div>
+  ),
+}))
+
+vi.mock('../src/inspector/InspectorPanel', () => ({
+  InspectorPanel: ({ onPreview }: { onPreview: (nodeId: string, port: string) => void }) => (
+    <button type="button" onClick={() => onPreview('n1', 'table')}>
+      Fake preview trigger
+    </button>
+  ),
+}))
+
+vi.mock('../src/preview/PreviewPanel', () => ({
+  PreviewPanel: ({ onClose }: { onClose: () => void }) => (
+    <div>
+      <p>Preview panel</p>
+      <button type="button" onClick={onClose}>
+        Close preview
       </button>
     </div>
   ),
@@ -105,5 +124,20 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: /view code/i }))
 
     expect(screen.getByText('Generated Code')).toBeInTheDocument()
+  })
+
+  it('opens and closes the preview panel when Preview is triggered from the inspector', async () => {
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+    vi.mocked(client.previewSubgraph).mockResolvedValue({ columns: [], rows: [], total_rows: 0 })
+
+    render(<App />)
+    await userEvent.click(screen.getByText('Fake preview trigger'))
+
+    expect(await screen.findByText('Preview panel')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Close preview'))
+
+    expect(screen.queryByText('Preview panel')).not.toBeInTheDocument()
   })
 })
