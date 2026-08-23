@@ -1,6 +1,6 @@
 {
     "id": "sklearn_models.linear_regression",
-    "category": "Models (sklearn)",
+    "category": "Regression (sklearn)",
     "label": "Linear Regression",
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [{"name": "model", "type": "Model"}],

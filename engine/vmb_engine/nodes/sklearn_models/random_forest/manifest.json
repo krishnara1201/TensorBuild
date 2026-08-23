@@ -1,6 +1,6 @@
 {
     "id": "sklearn_models.random_forest",
-    "category": "Models (sklearn)",
+    "category": "Classification (sklearn)",
     "label": "Random Forest",
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [{"name": "model", "type": "Model"}],

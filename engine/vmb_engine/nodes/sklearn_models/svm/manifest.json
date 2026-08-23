@@ -1,6 +1,6 @@
 {
     "id": "sklearn_models.svm",
-    "category": "Models (sklearn)",
+    "category": "Classification (sklearn)",
     "label": "SVM",
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [{"name": "model", "type": "Model"}],

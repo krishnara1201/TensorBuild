@@ -1,6 +1,6 @@
 {
     "id": "sklearn_models.logistic_regression",
-    "category": "Models (sklearn)",
+    "category": "Classification (sklearn)",
     "label": "Logistic Regression",
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [{"name": "model", "type": "Model"}],

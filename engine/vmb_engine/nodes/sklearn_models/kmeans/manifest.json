@@ -1,6 +1,6 @@
 {
     "id": "sklearn_models.kmeans",
-    "category": "Models (sklearn)",
+    "category": "Clustering (sklearn)",
     "label": "KMeans",
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [{"name": "model", "type": "Model"}],
