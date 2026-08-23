@@ -499,3 +499,88 @@ def test_random_forest_tuning_codegen_raises_on_malformed_grid_value():
             },
             {"model": "n3_model", "metrics": "n3_metrics"},
         )
+
+
+def test_logistic_regression_tuning_execute_fits_best_model():
+    node = _load_node_module("sklearn_models/logistic_regression_tuning")
+    train_df = _toy_frame()
+
+    outputs = node.execute(
+        {"train_table": train_df},
+        {
+            "target_column": "label",
+            "C_options": "0.1,1",
+            "cv": 2,
+            "scoring": "accuracy",
+            "random_state": 42,
+        },
+    )
+
+    model = outputs["model"]
+    metrics = outputs["metrics"]
+    assert model["feature_columns"] == ["x1", "x2"]
+    assert hasattr(model["estimator"], "predict")
+    assert metrics["best_params"]["C"] in (0.1, 1.0)
+    assert isinstance(metrics["best_score"], float)
+    assert 0.0 <= metrics["best_score"] <= 1.0
+
+
+def test_logistic_regression_tuning_execute_raises_on_malformed_grid_value():
+    node = _load_node_module("sklearn_models/logistic_regression_tuning")
+    train_df = _toy_frame()
+
+    with pytest.raises(ValueError):
+        node.execute(
+            {"train_table": train_df},
+            {
+                "target_column": "label",
+                "C_options": "abc,1",
+                "cv": 2,
+                "scoring": "accuracy",
+                "random_state": 42,
+            },
+        )
+
+
+def test_logistic_regression_tuning_codegen_emits_grid_search_call():
+    node = _load_node_module("sklearn_models/logistic_regression_tuning")
+    lines = node.codegen(
+        {"train_table": "n2_train"},
+        {
+            "target_column": "label",
+            "C_options": "0.1,1",
+            "cv": 2,
+            "scoring": "accuracy",
+            "random_state": 42,
+        },
+        {"model": "n3_model", "metrics": "n3_metrics"},
+    )
+    assert lines == [
+        "n3_model_X = n2_train.drop(columns=['label'])",
+        "n3_model_y = n2_train['label']",
+        "n3_model_param_grid = {'C': [0.1, 1.0]}",
+        "n3_model_search = GridSearchCV(LogisticRegression(max_iter=1000, random_state=42), "
+        "n3_model_param_grid, cv=2, scoring='accuracy')",
+        "n3_model_search.fit(n3_model_X, n3_model_y)",
+        "n3_model = n3_model_search.best_estimator_",
+        "n3_metrics = {'best_params': n3_model_search.best_params_, "
+        "'best_score': float(n3_model_search.best_score_)}",
+        "print(n3_metrics)",
+    ]
+
+
+def test_logistic_regression_tuning_codegen_raises_on_malformed_grid_value():
+    node = _load_node_module("sklearn_models/logistic_regression_tuning")
+
+    with pytest.raises(ValueError):
+        node.codegen(
+            {"train_table": "n2_train"},
+            {
+                "target_column": "label",
+                "C_options": "abc,1",
+                "cv": 2,
+                "scoring": "accuracy",
+                "random_state": 42,
+            },
+            {"model": "n3_model", "metrics": "n3_metrics"},
+        )
