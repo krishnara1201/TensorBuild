@@ -3,6 +3,10 @@ export interface Port {
   type: string
 }
 
+export interface OptionsSource {
+  input_port: string
+}
+
 export interface ParamSpec {
   name: string
   type: 'text' | 'number' | 'select' | 'file_picker' | 'checkbox' | 'slider'
@@ -11,6 +15,9 @@ export interface ParamSpec {
   // Not sent by the engine today (see this plan's Global Constraints) —
   // optional for forward compatibility.
   options?: string[]
+  // Dynamic option list sourced from an upstream Table's columns —
+  // mutually exclusive with `options`.
+  options_source?: OptionsSource
   min?: number
   max?: number
   step?: number
@@ -48,4 +55,15 @@ export type RunOutcome =
 
 export interface CodegenResult {
   code: string
+}
+
+export interface PreviewColumn {
+  name: string
+  dtype: string
+}
+
+export interface PreviewResult {
+  columns: PreviewColumn[]
+  rows: unknown[][]
+  total_rows: number
 }

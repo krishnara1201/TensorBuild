@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import type { CodegenResult, NodeManifest, PipelineIR, RunOutcome } from './types'
+import type { CodegenResult, NodeManifest, PipelineIR, PreviewResult, RunOutcome } from './types'
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8000'
 let baseUrl = DEFAULT_BASE_URL
@@ -22,19 +22,23 @@ export async function getNodes(): Promise<NodeManifest[]> {
   return response.json()
 }
 
-async function postPipeline(path: string, ir: PipelineIR): Promise<{ status: number; body: unknown }> {
+async function postJson(path: string, body: unknown): Promise<{ status: number; body: unknown }> {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(ir),
+    body: JSON.stringify(body),
   })
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
+    const errBody = await response.json().catch(() => null)
     const detail =
-      body && typeof body.detail === 'string' ? body.detail : `${path} failed: ${response.status}`
+      errBody && typeof errBody.detail === 'string' ? errBody.detail : `${path} failed: ${response.status}`
     throw new Error(detail)
   }
   return { status: response.status, body: await response.json() }
+}
+
+async function postPipeline(path: string, ir: PipelineIR): Promise<{ status: number; body: unknown }> {
+  return postJson(path, ir)
 }
 
 export async function runPipeline(ir: PipelineIR): Promise<RunOutcome> {
@@ -48,6 +52,11 @@ export async function runPipeline(ir: PipelineIR): Promise<RunOutcome> {
 export async function getCode(ir: PipelineIR): Promise<CodegenResult> {
   const { body } = await postPipeline('/pipeline/codegen', ir)
   return body as CodegenResult
+}
+
+export async function previewSubgraph(ir: PipelineIR, targetNodeId: string, port: string): Promise<PreviewResult> {
+  const { body } = await postJson('/pipeline/preview', { pipeline: ir, target_node_id: targetNodeId, port })
+  return body as PreviewResult
 }
 
 export function getRunSocketUrl(runId: string): string {

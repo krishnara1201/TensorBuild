@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getCode, getNodes, getRunSocketUrl, runPipeline, resolveBaseUrl } from '../src/api/client'
+import { getCode, getNodes, getRunSocketUrl, previewSubgraph, runPipeline, resolveBaseUrl } from '../src/api/client'
 import type { NodeManifest, PipelineIR } from '../src/api/types'
 import { invoke } from '@tauri-apps/api/core'
 
@@ -100,6 +100,35 @@ describe('api/client', () => {
       body: JSON.stringify(ir),
     })
     expect(result).toEqual({ code: 'print(1)' })
+  })
+
+  it('previewSubgraph POSTs the pipeline/target/port and returns the parsed result', async () => {
+    const ir: PipelineIR = { nodes: [], edges: [] }
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ columns: [{ name: 'a', dtype: 'int64' }], rows: [[1]], total_rows: 1 }),
+    } as Response)
+
+    const result = await previewSubgraph(ir, 'n1', 'table')
+
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/pipeline/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline: ir, target_node_id: 'n1', port: 'table' }),
+    })
+    expect(result).toEqual({ columns: [{ name: 'a', dtype: 'int64' }], rows: [[1]], total_rows: 1 })
+  })
+
+  it('previewSubgraph throws the engine detail message on a 422', async () => {
+    const ir: PipelineIR = { nodes: [], edges: [] }
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: async () => ({ detail: 'cannot preview past a training node' }),
+    } as Response)
+
+    await expect(previewSubgraph(ir, 'n1', 'table')).rejects.toThrow('cannot preview past a training node')
   })
 
   it('getRunSocketUrl swaps the http(s) scheme for ws(s)', () => {
