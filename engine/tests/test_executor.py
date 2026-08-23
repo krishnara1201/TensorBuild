@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from vmb_engine.executor import ExecutorError, ancestors_of, execute_pipeline, topological_sort
+from vmb_engine.executor import (
+    ExecutorError,
+    PreviewError,
+    ancestors_of,
+    execute_pipeline,
+    execute_subgraph_preview,
+    topological_sort,
+)
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry
 
@@ -301,3 +308,73 @@ def test_ancestors_of_excludes_disconnected_branch():
     )
     assert ancestors_of(ir, "n2") == {"n1", "n2"}
     assert ancestors_of(ir, "n3") == {"n3"}
+
+
+def _table_preview_pipeline(csv_path: str) -> PipelineIR:
+    return PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": csv_path}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+            ],
+            "edges": [{"from": "n1.table", "to": "n2.table"}],
+        }
+    )
+
+
+def test_execute_subgraph_preview_returns_columns_rows_and_total(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n" + "\n".join(f"{i},{i % 2}" for i in range(40)))
+    ir = _table_preview_pipeline(str(csv_path))
+
+    result = execute_subgraph_preview(ir, registry, "n2", "train")
+
+    assert {c["name"] for c in result["columns"]} == {"a", "label"}
+    assert result["total_rows"] == 30
+    assert len(result["rows"]) == 30
+
+
+def test_execute_subgraph_preview_caps_rows_at_50(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n" + "\n".join(f"{i},{i % 2}" for i in range(200)))
+    ir = _table_preview_pipeline(str(csv_path))
+
+    result = execute_subgraph_preview(ir, registry, "n1", "table")
+
+    assert result["total_rows"] == 200
+    assert len(result["rows"]) == 50
+
+
+def test_execute_subgraph_preview_rejects_wrong_port_name(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n1,0\n")
+    ir = _table_preview_pipeline(str(csv_path))
+
+    with pytest.raises(PreviewError, match="no Table output named"):
+        execute_subgraph_preview(ir, registry, "n1", "not_a_port")
+
+
+def test_execute_subgraph_preview_rejects_unknown_target_node(registry):
+    ir = _table_preview_pipeline("unused.csv")
+
+    with pytest.raises(PreviewError, match="unknown node"):
+        execute_subgraph_preview(ir, registry, "does_not_exist", "table")
+
+
+def test_execute_subgraph_preview_rejects_long_running_ancestor(registry):
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "pytorch_models.input", "params": {"random_state": 42}},
+                {"id": "n2", "type": "pytorch_models.train", "params": {"target_column": "label"}},
+            ],
+            "edges": [{"from": "n1.architecture", "to": "n2.architecture"}],
+        }
+    )
+
+    with pytest.raises(PreviewError, match="training node"):
+        execute_subgraph_preview(ir, registry, "n2", "model")

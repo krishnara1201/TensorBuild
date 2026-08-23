@@ -66,12 +66,16 @@ def ancestors_of(ir: PipelineIR, target_node_id: str) -> set[str]:
     return visited
 
 
-def execute_pipeline(
+class PreviewError(Exception):
+    pass
+
+
+def _execute_nodes(
     ir: PipelineIR,
     registry: NodeRegistry,
+    node_ids: list[str],
     progress_callback=None,
 ) -> dict[str, object]:
-    order = topological_sort(ir)
     nodes_by_id = {node.id: node for node in ir.nodes}
 
     incoming_edges: dict[str, list] = defaultdict(list)
@@ -81,7 +85,7 @@ def execute_pipeline(
 
     context: dict[str, object] = {}
 
-    for node_id in order:
+    for node_id in node_ids:
         node_spec = nodes_by_id[node_id]
         node_def = registry.get(node_spec.type)
 
@@ -122,6 +126,47 @@ def execute_pipeline(
             context[f"{node_id}.{port.name}"] = outputs[port.name]
 
     return context
+
+
+def execute_pipeline(
+    ir: PipelineIR,
+    registry: NodeRegistry,
+    progress_callback=None,
+) -> dict[str, object]:
+    order = topological_sort(ir)
+    return _execute_nodes(ir, registry, order, progress_callback)
+
+
+def execute_subgraph_preview(
+    ir: PipelineIR,
+    registry: NodeRegistry,
+    target_node_id: str,
+    port: str,
+) -> dict:
+    nodes_by_id = {node.id: node for node in ir.nodes}
+    if target_node_id not in nodes_by_id:
+        raise PreviewError(f"unknown node '{target_node_id}'")
+
+    ancestor_ids = ancestors_of(ir, target_node_id)
+    for node_id in ancestor_ids:
+        if registry.get(nodes_by_id[node_id].type).manifest.long_running:
+            raise PreviewError("cannot preview past a training node")
+
+    target_manifest = registry.get(nodes_by_id[target_node_id].type).manifest
+    port_spec = next((p for p in target_manifest.outputs if p.name == port), None)
+    if port_spec is None or port_spec.type != "Table":
+        raise PreviewError(f"node '{target_node_id}' has no Table output named '{port}'")
+
+    order = [node_id for node_id in topological_sort(ir) if node_id in ancestor_ids]
+    context = _execute_nodes(ir, registry, order)
+
+    df = context[f"{target_node_id}.{port}"]
+    sample = df.head(50)
+    return {
+        "columns": [{"name": str(col), "dtype": str(df[col].dtype)} for col in df.columns],
+        "rows": sample.values.tolist(),
+        "total_rows": len(df),
+    }
 
 
 def collect_metrics_outputs(
