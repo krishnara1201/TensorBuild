@@ -153,7 +153,7 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(screen.getByText(/n4\.metrics/)).toBeInTheDocument()
+    expect(screen.getByText('n4')).toBeInTheDocument()
     expect(screen.getByText('Accuracy')).toBeInTheDocument()
     expect(screen.getByText('0.9500')).toBeInTheDocument()
   })
@@ -208,7 +208,7 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(screen.getByText(/n5\.metrics/)).toBeInTheDocument()
+    expect(screen.getByText('n5')).toBeInTheDocument()
     expect(screen.getByText('Accuracy')).toBeInTheDocument()
     expect(screen.getByText('0.8700')).toBeInTheDocument()
   })

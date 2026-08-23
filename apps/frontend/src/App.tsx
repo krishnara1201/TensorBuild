@@ -29,6 +29,11 @@ export function App() {
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
 
+  const nodeLabels = useMemo(
+    () => Object.fromEntries(nodes.map((node) => [node.id, node.data.manifest.label])),
+    [nodes],
+  )
+
   const handleParamChange = useCallback(
     (nodeId: string, paramName: string, value: unknown) => {
       setNodes((nds) =>
@@ -134,6 +139,7 @@ export function App() {
             runMetrics={resultMetrics}
             runError={runError}
             previewState={preview.state}
+            nodeLabels={nodeLabels}
           />
         }
         visualizations={
@@ -141,6 +147,7 @@ export function App() {
             runMetrics={resultMetrics}
             previewData={preview.state.status === 'success' ? preview.state.data : undefined}
             trainingState={activeRunId ? trainingState : undefined}
+            nodeLabels={nodeLabels}
           />
         }
       />

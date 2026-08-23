@@ -3,6 +3,7 @@ import {
   extractConfusionMatrix,
   extractRocCurve,
   formatMetricKey,
+  metricsRefLabels,
   nonChartMetrics,
 } from '../src/metrics/metricsHelpers'
 
@@ -43,5 +44,29 @@ describe('extractRocCurve', () => {
 
   it('returns null when absent', () => {
     expect(extractRocCurve({ accuracy: 0.9 })).toBeNull()
+  })
+})
+
+describe('metricsRefLabels', () => {
+  it('resolves a ref to its node label', () => {
+    expect(metricsRefLabels(['n2.metrics'], { n2: 'Evaluate Classifier' })).toEqual({
+      'n2.metrics': 'Evaluate Classifier',
+    })
+  })
+
+  it('falls back to the raw node id when the node has no known label', () => {
+    expect(metricsRefLabels(['n2.metrics'], {})).toEqual({ 'n2.metrics': 'n2' })
+  })
+
+  it('disambiguates with the node id when two refs share a label', () => {
+    expect(
+      metricsRefLabels(['n2.metrics', 'n5.metrics'], {
+        n2: 'Evaluate Classifier',
+        n5: 'Evaluate Classifier',
+      }),
+    ).toEqual({
+      'n2.metrics': 'Evaluate Classifier (n2)',
+      'n5.metrics': 'Evaluate Classifier (n5)',
+    })
   })
 })

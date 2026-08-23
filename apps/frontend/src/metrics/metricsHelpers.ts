@@ -34,3 +34,32 @@ export function formatMetricKey(key: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
+
+/**
+ * Resolves each metrics ref ("n2.metrics") to a display label using the
+ * owning node's manifest label ("Evaluate Classifier"), falling back to the
+ * raw node id when the node has no known label. When two refs resolve to
+ * the same label (two nodes of the same type), the node id is appended to
+ * each to disambiguate.
+ */
+export function metricsRefLabels(
+  refs: string[],
+  nodeLabels: Record<string, string>,
+): Record<string, string> {
+  const nodeIdFor = (ref: string) => ref.split('.')[0]
+  const baseLabelFor = (ref: string) => nodeLabels[nodeIdFor(ref)] ?? nodeIdFor(ref)
+
+  const counts = new Map<string, number>()
+  for (const ref of refs) {
+    const label = baseLabelFor(ref)
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+
+  return Object.fromEntries(
+    refs.map((ref) => {
+      const label = baseLabelFor(ref)
+      const display = (counts.get(label) ?? 0) > 1 ? `${label} (${nodeIdFor(ref)})` : label
+      return [ref, display]
+    }),
+  )
+}

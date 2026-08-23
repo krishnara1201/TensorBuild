@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { metricsRefLabels } from '../metrics/metricsHelpers'
 import { MetricsSummary } from '../metrics/MetricsSummary'
 import { PreviewPanel } from '../preview/PreviewPanel'
 import type { PreviewState } from '../preview/usePreview'
@@ -10,9 +12,24 @@ export interface OutputPanelProps {
   runMetrics: Record<string, unknown> | undefined
   runError: string | null
   previewState: PreviewState
+  nodeLabels?: Record<string, string>
 }
 
-export function OutputPanel({ activeTab, onTabChange, runMetrics, runError, previewState }: OutputPanelProps) {
+export function OutputPanel({
+  activeTab,
+  onTabChange,
+  runMetrics,
+  runError,
+  previewState,
+  nodeLabels = {},
+}: OutputPanelProps) {
+  const [selectedRef, setSelectedRef] = useState<string | null>(null)
+
+  const refs = runMetrics ? Object.keys(runMetrics) : []
+  const labels = metricsRefLabels(refs, nodeLabels)
+  const activeRef = selectedRef && refs.includes(selectedRef) ? selectedRef : refs[0]
+  const activeMetrics = runMetrics && activeRef ? (runMetrics[activeRef] as Record<string, unknown>) : null
+
   return (
     <div className="output-panel">
       <div className="output-panel-tabs" role="tablist">
@@ -39,19 +56,27 @@ export function OutputPanel({ activeTab, onTabChange, runMetrics, runError, prev
         {activeTab === 'results' && (
           <>
             {runError && <p className="error-banner">{runError}</p>}
-            {runMetrics && Object.keys(runMetrics).length > 0 && (
+            {activeRef && activeMetrics && (
               <div className="metrics-list">
-                {Object.entries(runMetrics).map(([ref, value]) => (
-                  <div key={ref} className="metrics-block">
-                    <h3 className="metrics-block-heading">{ref}</h3>
-                    <MetricsSummary metrics={value as Record<string, unknown>} />
-                  </div>
-                ))}
+                {refs.length > 1 && (
+                  <label className="metrics-selector">
+                    <span>Node</span>
+                    <select value={activeRef} onChange={(event) => setSelectedRef(event.target.value)}>
+                      {refs.map((ref) => (
+                        <option key={ref} value={ref}>
+                          {labels[ref]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div className="metrics-block">
+                  <h3 className="metrics-block-heading">{labels[activeRef]}</h3>
+                  <MetricsSummary metrics={activeMetrics} />
+                </div>
               </div>
             )}
-            {!runError && (!runMetrics || Object.keys(runMetrics).length === 0) && (
-              <p className="output-panel-empty">Run the pipeline to see results here.</p>
-            )}
+            {!runError && !activeRef && <p className="output-panel-empty">Run the pipeline to see results here.</p>}
           </>
         )}
         {activeTab === 'preview' && <PreviewPanel state={previewState} />}
