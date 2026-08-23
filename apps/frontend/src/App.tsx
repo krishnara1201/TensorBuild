@@ -64,6 +64,20 @@ export function App() {
     })
   }, [nodes, edges, codeMutation])
 
+  const handleReset = useCallback(() => {
+    if (!window.confirm('Reset the canvas? This clears all nodes and results.')) return
+
+    setNodes([])
+    setEdges([])
+    setSelectedNodeId(null)
+    setCodeViewOpen(false)
+    setActiveRunId(null)
+    setOutputTab('results')
+    preview.reset()
+    runMutation.reset()
+    codeMutation.reset()
+  }, [setNodes, setEdges, preview, runMutation, codeMutation])
+
   const handlePreview = useCallback(
     (nodeId: string, port: string) => {
       setOutputTab('preview')
@@ -104,6 +118,9 @@ export function App() {
         </button>
         <button type="button" onClick={handleViewCode} disabled={codeMutation.isPending}>
           {codeMutation.isPending ? 'Generating…' : 'View Code'}
+        </button>
+        <button type="button" onClick={handleReset} disabled={isRunning}>
+          Reset
         </button>
       </header>
 

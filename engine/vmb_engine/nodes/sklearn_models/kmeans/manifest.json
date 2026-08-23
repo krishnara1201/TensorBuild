@@ -3,7 +3,10 @@
     "category": "Clustering (sklearn)",
     "label": "KMeans",
     "inputs": [{"name": "train_table", "type": "Table"}],
-    "outputs": [{"name": "model", "type": "Model"}],
+    "outputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "model_summary", "type": "Metrics"}
+    ],
     "params": [
         {"name": "n_clusters", "type": "number", "label": "N Clusters", "default": 3},
         {"name": "random_state", "type": "number", "label": "Random State", "default": 42}

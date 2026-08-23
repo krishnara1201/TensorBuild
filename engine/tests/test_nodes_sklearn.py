@@ -49,18 +49,35 @@ def test_random_forest_execute_fits_model():
     assert hasattr(model["estimator"], "predict")
 
 
+def test_random_forest_execute_returns_feature_importances_summary():
+    rf = _load_node_module("sklearn_models/random_forest")
+    train_df = _toy_frame()
+
+    outputs = rf.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "n_estimators": 10, "random_state": 42},
+    )
+
+    importances = outputs["model_summary"]["feature_importances"]
+    assert set(importances.keys()) == {"x1", "x2"}
+    assert all(isinstance(v, float) for v in importances.values())
+
+
 def test_random_forest_codegen_emits_fit_call():
     rf = _load_node_module("sklearn_models/random_forest")
     lines = rf.codegen(
         {"train_table": "n2_train"},
         {"target_column": "label", "n_estimators": 10, "random_state": 42},
-        {"model": "n3_model"},
+        {"model": "n3_model", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
         "n3_model_y = n2_train['label']",
         "n3_model = RandomForestClassifier(n_estimators=10, random_state=42)",
         "n3_model.fit(n3_model_X, n3_model_y)",
+        "n3_model_summary = {'feature_importances': "
+        "dict(zip(n3_model_X.columns, n3_model.feature_importances_.tolist()))}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -118,18 +135,62 @@ def test_logistic_regression_execute_fits_model():
     assert hasattr(model["estimator"], "predict")
 
 
+def test_logistic_regression_execute_returns_binary_coefficients_summary():
+    lr = _load_node_module("sklearn_models/logistic_regression")
+    train_df = _toy_frame()
+
+    outputs = lr.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "max_iter": 1000, "random_state": 42},
+    )
+
+    summary = outputs["model_summary"]
+    assert set(summary["coefficients"].keys()) == {"x1", "x2"}
+    assert isinstance(summary["intercept"], float)
+
+
+def test_logistic_regression_execute_returns_multiclass_coefficients_summary():
+    lr = _load_node_module("sklearn_models/logistic_regression")
+    train_df = _toy_frame_multiclass()
+
+    outputs = lr.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "max_iter": 1000, "random_state": 42},
+    )
+
+    summary = outputs["model_summary"]
+    assert set(summary["coefficients"].keys()) == {"0", "1", "2"}
+    for per_class in summary["coefficients"].values():
+        assert set(per_class.keys()) == {"x1", "x2"}
+    assert set(summary["intercept"].keys()) == {"0", "1", "2"}
+
+
 def test_logistic_regression_codegen_emits_fit_call():
     lr = _load_node_module("sklearn_models/logistic_regression")
     lines = lr.codegen(
         {"train_table": "n2_train"},
         {"target_column": "label", "max_iter": 1000, "random_state": 42},
-        {"model": "n3_model"},
+        {"model": "n3_model", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
         "n3_model_y = n2_train['label']",
         "n3_model = LogisticRegression(max_iter=1000, random_state=42)",
         "n3_model.fit(n3_model_X, n3_model_y)",
+        "n3_model_summary_coef = n3_model.coef_",
+        "if n3_model_summary_coef.shape[0] == 1:",
+        "    n3_model_summary = {'coefficients': "
+        "dict(zip(n3_model_X.columns, n3_model_summary_coef[0].tolist())), "
+        "'intercept': float(n3_model.intercept_[0])}",
+        "else:",
+        "    n3_model_summary_classes = "
+        "list(n3_model.classes_)[-n3_model_summary_coef.shape[0]:]",
+        "    n3_model_summary = {'coefficients': {str(c): "
+        "dict(zip(n3_model_X.columns, row.tolist())) "
+        "for c, row in zip(n3_model_summary_classes, n3_model_summary_coef)}, "
+        "'intercept': {str(c): v for c, v in "
+        "zip(n3_model_summary_classes, n3_model.intercept_.tolist())}}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -144,18 +205,33 @@ def test_linear_regression_execute_fits_model():
     assert hasattr(model["estimator"], "predict")
 
 
+def test_linear_regression_execute_returns_coefficients_summary():
+    lr = _load_node_module("sklearn_models/linear_regression")
+    train_df = _toy_frame()
+
+    outputs = lr.execute({"train_table": train_df}, {"target_column": "label"})
+
+    summary = outputs["model_summary"]
+    assert set(summary["coefficients"].keys()) == {"x1", "x2"}
+    assert isinstance(summary["intercept"], float)
+
+
 def test_linear_regression_codegen_emits_fit_call():
     lr = _load_node_module("sklearn_models/linear_regression")
     lines = lr.codegen(
         {"train_table": "n2_train"},
         {"target_column": "label"},
-        {"model": "n3_model"},
+        {"model": "n3_model", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
         "n3_model_y = n2_train['label']",
         "n3_model = LinearRegression()",
         "n3_model.fit(n3_model_X, n3_model_y)",
+        "n3_model_summary = {'coefficients': "
+        "dict(zip(n3_model_X.columns, n3_model.coef_.tolist())), "
+        "'intercept': float(n3_model.intercept_)}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -173,18 +249,35 @@ def test_svm_execute_fits_model():
     assert hasattr(model["estimator"], "predict")
 
 
+def test_svm_execute_returns_kernel_and_support_vector_summary():
+    svm = _load_node_module("sklearn_models/svm")
+    train_df = _toy_frame()
+
+    outputs = svm.execute(
+        {"train_table": train_df},
+        {"target_column": "label", "C": 1.0, "random_state": 42},
+    )
+
+    summary = outputs["model_summary"]
+    assert summary["kernel"] == "rbf"
+    assert isinstance(summary["n_support"], list)
+
+
 def test_svm_codegen_emits_fit_call():
     svm = _load_node_module("sklearn_models/svm")
     lines = svm.codegen(
         {"train_table": "n2_train"},
         {"target_column": "label", "C": 1.0, "random_state": 42},
-        {"model": "n3_model"},
+        {"model": "n3_model", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
         "n3_model_y = n2_train['label']",
         "n3_model = SVC(C=1.0, random_state=42)",
         "n3_model.fit(n3_model_X, n3_model_y)",
+        "n3_model_summary = {'kernel': n3_model.kernel, "
+        "'n_support': n3_model.n_support_.tolist()}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -201,16 +294,32 @@ def test_kmeans_execute_fits_model():
     assert hasattr(model["estimator"], "predict")
 
 
+def test_kmeans_execute_returns_cluster_center_summary():
+    km = _load_node_module("sklearn_models/kmeans")
+    train_df = _toy_frame()
+
+    outputs = km.execute({"train_table": train_df}, {"n_clusters": 2, "random_state": 42})
+
+    summary = outputs["model_summary"]
+    assert len(summary["cluster_centers"]) == 2
+    assert set(summary["cluster_centers"][0].keys()) == {"x1", "x2", "label"}
+    assert isinstance(summary["inertia"], float)
+
+
 def test_kmeans_codegen_emits_fit_call():
     km = _load_node_module("sklearn_models/kmeans")
     lines = km.codegen(
         {"train_table": "n2_train"},
         {"n_clusters": 2, "random_state": 42},
-        {"model": "n3_model"},
+        {"model": "n3_model", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model = KMeans(n_clusters=2, random_state=42)",
         "n3_model.fit(n2_train)",
+        "n3_model_summary = {'cluster_centers': "
+        "[dict(zip(n2_train.columns, c.tolist())) for c in n3_model.cluster_centers_], "
+        "'inertia': float(n3_model.inertia_)}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -435,6 +544,7 @@ def test_random_forest_tuning_execute_fits_best_model():
     assert metrics["best_params"]["max_depth"] in (3, None)
     assert isinstance(metrics["best_score"], float)
     assert 0.0 <= metrics["best_score"] <= 1.0
+    assert set(outputs["model_summary"]["feature_importances"].keys()) == {"x1", "x2"}
 
 
 def test_random_forest_tuning_execute_raises_on_malformed_grid_value():
@@ -467,7 +577,7 @@ def test_random_forest_tuning_codegen_emits_grid_search_call():
             "scoring": "accuracy",
             "random_state": 42,
         },
-        {"model": "n3_model", "metrics": "n3_metrics"},
+        {"model": "n3_model", "metrics": "n3_metrics", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
@@ -480,6 +590,9 @@ def test_random_forest_tuning_codegen_emits_grid_search_call():
         "n3_metrics = {'best_params': n3_model_search.best_params_, "
         "'best_score': float(n3_model_search.best_score_)}",
         "print(n3_metrics)",
+        "n3_model_summary = {'feature_importances': "
+        "dict(zip(n3_model_X.columns, n3_model.feature_importances_.tolist()))}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -497,7 +610,7 @@ def test_random_forest_tuning_codegen_raises_on_malformed_grid_value():
                 "scoring": "accuracy",
                 "random_state": 42,
             },
-            {"model": "n3_model", "metrics": "n3_metrics"},
+            {"model": "n3_model", "metrics": "n3_metrics", "model_summary": "n3_model_summary"},
         )
 
 
@@ -523,6 +636,7 @@ def test_logistic_regression_tuning_execute_fits_best_model():
     assert metrics["best_params"]["C"] in (0.1, 1.0)
     assert isinstance(metrics["best_score"], float)
     assert 0.0 <= metrics["best_score"] <= 1.0
+    assert set(outputs["model_summary"]["coefficients"].keys()) == {"x1", "x2"}
 
 
 def test_logistic_regression_tuning_execute_raises_on_malformed_grid_value():
@@ -553,7 +667,7 @@ def test_logistic_regression_tuning_codegen_emits_grid_search_call():
             "scoring": "accuracy",
             "random_state": 42,
         },
-        {"model": "n3_model", "metrics": "n3_metrics"},
+        {"model": "n3_model", "metrics": "n3_metrics", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
@@ -566,6 +680,20 @@ def test_logistic_regression_tuning_codegen_emits_grid_search_call():
         "n3_metrics = {'best_params': n3_model_search.best_params_, "
         "'best_score': float(n3_model_search.best_score_)}",
         "print(n3_metrics)",
+        "n3_model_summary_coef = n3_model.coef_",
+        "if n3_model_summary_coef.shape[0] == 1:",
+        "    n3_model_summary = {'coefficients': "
+        "dict(zip(n3_model_X.columns, n3_model_summary_coef[0].tolist())), "
+        "'intercept': float(n3_model.intercept_[0])}",
+        "else:",
+        "    n3_model_summary_classes = "
+        "list(n3_model.classes_)[-n3_model_summary_coef.shape[0]:]",
+        "    n3_model_summary = {'coefficients': {str(c): "
+        "dict(zip(n3_model_X.columns, row.tolist())) "
+        "for c, row in zip(n3_model_summary_classes, n3_model_summary_coef)}, "
+        "'intercept': {str(c): v for c, v in "
+        "zip(n3_model_summary_classes, n3_model.intercept_.tolist())}}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -582,7 +710,7 @@ def test_logistic_regression_tuning_codegen_raises_on_malformed_grid_value():
                 "scoring": "accuracy",
                 "random_state": 42,
             },
-            {"model": "n3_model", "metrics": "n3_metrics"},
+            {"model": "n3_model", "metrics": "n3_metrics", "model_summary": "n3_model_summary"},
         )
 
 
@@ -608,6 +736,7 @@ def test_svm_tuning_execute_fits_best_model():
     assert metrics["best_params"]["C"] in (0.1, 1.0)
     assert isinstance(metrics["best_score"], float)
     assert 0.0 <= metrics["best_score"] <= 1.0
+    assert outputs["model_summary"]["kernel"] == "rbf"
 
 
 def test_svm_tuning_execute_raises_on_malformed_grid_value():
@@ -638,7 +767,7 @@ def test_svm_tuning_codegen_emits_grid_search_call():
             "scoring": "accuracy",
             "random_state": 42,
         },
-        {"model": "n3_model", "metrics": "n3_metrics"},
+        {"model": "n3_model", "metrics": "n3_metrics", "model_summary": "n3_model_summary"},
     )
     assert lines == [
         "n3_model_X = n2_train.drop(columns=['label'])",
@@ -651,6 +780,9 @@ def test_svm_tuning_codegen_emits_grid_search_call():
         "n3_metrics = {'best_params': n3_model_search.best_params_, "
         "'best_score': float(n3_model_search.best_score_)}",
         "print(n3_metrics)",
+        "n3_model_summary = {'kernel': n3_model.kernel, "
+        "'n_support': n3_model.n_support_.tolist()}",
+        "print(n3_model_summary)",
     ]
 
 
@@ -667,5 +799,5 @@ def test_svm_tuning_codegen_raises_on_malformed_grid_value():
                 "scoring": "accuracy",
                 "random_state": 42,
             },
-            {"model": "n3_model", "metrics": "n3_metrics"},
+            {"model": "n3_model", "metrics": "n3_metrics", "model_summary": "n3_model_summary"},
         )

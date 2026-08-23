@@ -575,6 +575,54 @@ def test_executor_and_exported_script_agree_with_roc_auc_node(tmp_path, registry
     assert executor_auc == pytest.approx(script_auc, abs=1e-9)
 
 
+def test_executor_and_exported_script_agree_on_model_summary_intercept(tmp_path, registry):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,b,label\n" + "\n".join(f"{i},{i * 2},{i * 3.1}" for i in range(60)))
+
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+                {
+                    "id": "n3",
+                    "type": "sklearn_models.linear_regression",
+                    "params": {"target_column": "label"},
+                },
+            ],
+            "edges": [
+                {"from": "n1.table", "to": "n2.table"},
+                {"from": "n2.train", "to": "n3.train_table"},
+            ],
+        }
+    )
+
+    context = execute_pipeline(ir, registry)
+    executor_intercept = context["n3.model_summary"]["intercept"]
+
+    code = generate_code(ir, registry)
+    script_path = tmp_path / "exported.py"
+    script_path.write_text(code)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    match = re.search(r"'intercept':\s*([0-9.eE+-]+)", result.stdout)
+    assert match is not None, f"no intercept found in script output:\n{result.stdout}"
+    script_intercept = float(match.group(1))
+
+    assert executor_intercept == pytest.approx(script_intercept, abs=1e-9)
+
+
 def test_executor_and_exported_script_agree_with_random_forest_tuning(tmp_path, registry):
     csv_path = tmp_path / "d.csv"
     csv_path.write_text("a,b,label\n" + "\n".join(f"{i},{i * 2},{i % 2}" for i in range(60)))

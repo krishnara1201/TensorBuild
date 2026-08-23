@@ -85,6 +85,7 @@ vi.mock('../src/canvas/PipelineCanvas', () => ({
 function mockMutation(overrides: Partial<ReturnType<typeof client.useRunPipeline>>) {
   return {
     mutate: vi.fn(),
+    reset: vi.fn(),
     isPending: false,
     data: undefined,
     error: null,
@@ -257,6 +258,41 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
 
     expect(screen.queryByText('Training complete')).not.toBeInTheDocument()
+  })
+
+  it('does nothing when the reset confirmation is cancelled', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const runMutate = vi.fn()
+    const runReset = vi.fn()
+    const codeReset = vi.fn()
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ mutate: runMutate, reset: runReset }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({ reset: codeReset }))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^reset$/i }))
+
+    expect(window.confirm).toHaveBeenCalledWith('Reset the canvas? This clears all nodes and results.')
+    expect(runReset).not.toHaveBeenCalled()
+    expect(codeReset).not.toHaveBeenCalled()
+  })
+
+  it('clears run/code mutation state and returns to the Results tab after the reset is confirmed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const runReset = vi.fn()
+    const codeReset = vi.fn()
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ reset: runReset }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({ reset: codeReset }))
+    vi.mocked(client.previewSubgraph).mockResolvedValue({ columns: [], rows: [], total_rows: 0 })
+
+    render(<App />)
+    await userEvent.click(screen.getByText('Fake preview trigger'))
+    expect(await screen.findByRole('tab', { name: /data preview/i })).toHaveAttribute('aria-selected', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: /^reset$/i }))
+
+    expect(runReset).toHaveBeenCalled()
+    expect(codeReset).toHaveBeenCalled()
+    expect(screen.getByRole('tab', { name: /^results$/i })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('marks every canvas node "running" while a synchronous run is pending, and clears it once settled', () => {

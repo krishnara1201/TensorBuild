@@ -35,6 +35,58 @@ export function formatMetricKey(key: string): string {
     .join(' ')
 }
 
+export type ClassifiedMetric =
+  | { kind: 'scalar'; value: number | string }
+  | { kind: 'record'; value: Record<string, number> }
+  | { kind: 'nested-record'; value: Record<string, Record<string, number>> }
+  | { kind: 'record-list'; value: Record<string, number>[] }
+  | { kind: 'value-list'; value: (number | string)[] }
+  | { kind: 'unknown' }
+
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number'
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isRecordOfNumbers(value: unknown): value is Record<string, number> {
+  return isPlainObject(value) && Object.values(value).every(isNumber)
+}
+
+/**
+ * Classifies a metric value into a shape MetricsSummary knows how to render:
+ * a plain scalar, a flat dict of numbers, a dict of dicts of numbers (e.g.
+ * per-class coefficients), a list of dicts of numbers (e.g. cluster
+ * centers), or a flat list of scalars. Anything else is 'unknown' and falls
+ * back to a raw JSON dump.
+ */
+export function classifyMetricValue(value: unknown): ClassifiedMetric {
+  if (typeof value === 'number' || typeof value === 'string') {
+    return { kind: 'scalar', value }
+  }
+  if (Array.isArray(value)) {
+    if (value.every((item) => typeof item === 'number' || typeof item === 'string')) {
+      return { kind: 'value-list', value: value as (number | string)[] }
+    }
+    if (value.every(isRecordOfNumbers)) {
+      return { kind: 'record-list', value: value as Record<string, number>[] }
+    }
+    return { kind: 'unknown' }
+  }
+  if (isPlainObject(value)) {
+    if (isRecordOfNumbers(value)) {
+      return { kind: 'record', value }
+    }
+    if (Object.values(value).every(isRecordOfNumbers)) {
+      return { kind: 'nested-record', value: value as Record<string, Record<string, number>> }
+    }
+    return { kind: 'unknown' }
+  }
+  return { kind: 'unknown' }
+}
+
 /**
  * Resolves each metrics ref ("n2.metrics") to a display label using the
  * owning node's manifest label ("Evaluate Classifier"), falling back to the

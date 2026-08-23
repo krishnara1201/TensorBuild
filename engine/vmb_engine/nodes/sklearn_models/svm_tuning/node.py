@@ -31,9 +31,13 @@ def execute(inputs: dict, params: dict) -> dict:
     )
     search.fit(X, y)
 
+    best = search.best_estimator_
+    model_summary = {"kernel": best.kernel, "n_support": best.n_support_.tolist()}
+
     return {
-        "model": {"estimator": search.best_estimator_, "feature_columns": list(X.columns)},
+        "model": {"estimator": best, "feature_columns": list(X.columns)},
         "metrics": {"best_params": search.best_params_, "best_score": float(search.best_score_)},
+        "model_summary": model_summary,
     }
 
 
@@ -41,6 +45,7 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
     in_var = inputs["train_table"]
     model_var = var_names["model"]
     metrics_var = var_names["metrics"]
+    summary_var = var_names["model_summary"]
     target = params["target_column"]
 
     param_grid = {"C": _parse_grid(params["C_options"], float)}
@@ -57,4 +62,7 @@ def codegen(inputs: dict, params: dict, var_names: dict) -> list[str]:
         f"{metrics_var} = {{'best_params': {model_var}_search.best_params_, "
         f"'best_score': float({model_var}_search.best_score_)}}",
         f"print({metrics_var})",
+        f"{summary_var} = {{'kernel': {model_var}.kernel, "
+        f"'n_support': {model_var}.n_support_.tolist()}}",
+        f"print({summary_var})",
     ]

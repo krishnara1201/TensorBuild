@@ -269,8 +269,9 @@ def test_collect_metrics_outputs_filters_by_port_type(tmp_path, registry):
     context = execute_pipeline(ir, registry)
     metrics = collect_metrics_outputs(ir, registry, context)
 
-    assert set(metrics) == {"n4.metrics"}
+    assert set(metrics) == {"n4.metrics", "n3.model_summary"}
     assert 0.0 <= metrics["n4.metrics"]["accuracy"] <= 1.0
+    assert set(metrics["n3.model_summary"]["feature_importances"]) == {"a"}
 
 
 def test_ancestors_of_returns_target_and_all_upstream_nodes():

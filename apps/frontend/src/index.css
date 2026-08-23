@@ -415,6 +415,11 @@ body {
   padding: var(--space-1) var(--space-2);
 }
 
+.metrics-selector select option {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
 .metrics-view {
   margin: 0;
   display: grid;
@@ -454,16 +459,45 @@ body {
   gap: var(--space-3);
 }
 
-.confusion-matrix-table {
+.metrics-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.metrics-structured-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 0 0 var(--space-1);
+}
+
+.metrics-value-list {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.confusion-matrix-table,
+.metrics-record-table {
   border-collapse: collapse;
   margin-bottom: var(--space-2);
 }
 
 .confusion-matrix-table th,
-.confusion-matrix-table td {
+.confusion-matrix-table td,
+.metrics-record-table th,
+.metrics-record-table td {
   border: 1px solid var(--color-border);
   padding: var(--space-1) var(--space-2);
   text-align: center;
+}
+
+.metrics-record-table td {
+  font-variant-numeric: tabular-nums;
 }
 
 .confusion-matrix-diagonal {

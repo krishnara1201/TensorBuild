@@ -5,7 +5,8 @@
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [
         {"name": "model", "type": "Model"},
-        {"name": "metrics", "type": "Metrics"}
+        {"name": "metrics", "type": "Metrics"},
+        {"name": "model_summary", "type": "Metrics"}
     ],
     "params": [
         {

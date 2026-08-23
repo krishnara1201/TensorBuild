@@ -3,7 +3,10 @@
     "category": "Classification (sklearn)",
     "label": "Logistic Regression",
     "inputs": [{"name": "train_table", "type": "Table"}],
-    "outputs": [{"name": "model", "type": "Model"}],
+    "outputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "model_summary", "type": "Metrics"}
+    ],
     "params": [
         {
             "name": "target_column",
