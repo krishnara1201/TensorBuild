@@ -3,22 +3,19 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from '../src/App'
 import * as client from '../src/api/client'
+import * as trainingRun from '../src/training/useTrainingRun'
 
 vi.mock('../src/api/client', async () => {
   const actual = await vi.importActual<typeof import('../src/api/client')>('../src/api/client')
   return { ...actual, useNodes: vi.fn(), useRunPipeline: vi.fn(), useGetCode: vi.fn(), previewSubgraph: vi.fn() }
 })
 
-vi.mock('../src/training/TrainingMonitor', () => ({
-  TrainingMonitor: ({ runId, onClose }: { runId: string; onClose: () => void }) => (
-    <div>
-      <p>Training monitor for {runId}</p>
-      <button type="button" onClick={onClose}>
-        Close training monitor
-      </button>
-    </div>
-  ),
-}))
+vi.mock('../src/training/useTrainingRun', async () => {
+  const actual = await vi.importActual<typeof import('../src/training/useTrainingRun')>(
+    '../src/training/useTrainingRun',
+  )
+  return { ...actual, useTrainingRun: vi.fn() }
+})
 
 vi.mock('../src/inspector/InspectorPanel', () => ({
   InspectorPanel: ({ onPreview }: { onPreview: (nodeId: string, port: string) => void }) => (
@@ -43,6 +40,7 @@ describe('App', () => {
     vi.mocked(client.useNodes).mockReturnValue({ data: [], isLoading: false, error: null } as ReturnType<
       typeof client.useNodes
     >)
+    vi.mocked(trainingRun.useTrainingRun).mockReturnValue({ status: 'connecting', history: [] })
   })
 
   it('renders the app heading', () => {
@@ -90,7 +88,7 @@ describe('App', () => {
     expect(screen.getByText('0.9500')).toBeInTheDocument()
   })
 
-  it('opens the training monitor when the run mutation returns an async outcome', async () => {
+  it('shows a "Running…" state and a training heading in the visualizations panel when the run mutation returns an async outcome', async () => {
     const runMutate = vi.fn(
       (_ir, options?: { onSuccess?: (outcome: { kind: 'async'; runId: string }) => void }) =>
         options?.onSuccess?.({ kind: 'async', runId: 'run-1' }),
@@ -101,7 +99,8 @@ describe('App', () => {
     render(<App />)
     await userEvent.click(screen.getByRole('button', { name: /^run$/i }))
 
-    expect(screen.getByText('Training monitor for run-1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /running/i })).toBeDisabled()
+    expect(screen.getByText('Training…')).toBeInTheDocument()
   })
 
   it('opens the code view panel after a successful codegen call', async () => {
