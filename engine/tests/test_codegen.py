@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from vmb_engine.codegen import generate_code
+from vmb_engine.executor import ExecutorError
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry
 
@@ -70,3 +71,41 @@ def test_generate_code_orders_statements_by_dependency(registry):
 def test_generated_code_is_syntactically_valid_python(registry):
     code = generate_code(_pipeline(), registry)
     compile(code, "<generated>", "exec")  # raises SyntaxError if invalid
+
+
+def _pipeline_with_malformed_tuning_grid() -> PipelineIR:
+    return PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": "iris.csv"}},
+                {
+                    "id": "n2",
+                    "type": "data.train_test_split",
+                    "params": {"test_size": 0.25, "random_state": 42},
+                },
+                {
+                    "id": "n3",
+                    "type": "sklearn_models.random_forest_tuning",
+                    "params": {
+                        "target_column": "label",
+                        # Trailing comma yields an empty piece, which
+                        # int("") raises ValueError on inside _parse_grid.
+                        "n_estimators_options": "10,",
+                        "max_depth_options": "5,10,None",
+                        "cv": 5,
+                        "scoring": "accuracy",
+                        "random_state": 42,
+                    },
+                },
+            ],
+            "edges": [
+                {"from": "n1.table", "to": "n2.table"},
+                {"from": "n2.train", "to": "n3.train_table"},
+            ],
+        }
+    )
+
+
+def test_generate_code_wraps_codegen_failure_as_executor_error(registry):
+    with pytest.raises(ExecutorError, match="n3"):
+        generate_code(_pipeline_with_malformed_tuning_grid(), registry)

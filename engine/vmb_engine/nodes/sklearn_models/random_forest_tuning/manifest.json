@@ -1,0 +1,30 @@
+{
+    "id": "sklearn_models.random_forest_tuning",
+    "category": "Hyperparameter Tuning (sklearn)",
+    "label": "Random Forest (Grid Search)",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "metrics", "type": "Metrics"}
+    ],
+    "params": [
+        {
+            "name": "target_column",
+            "type": "select",
+            "label": "Target Column",
+            "default": "",
+            "options_source": {"input_port": "train_table"}
+        },
+        {"name": "n_estimators_options", "type": "text", "label": "N Estimators Options", "default": "50,100,200"},
+        {"name": "max_depth_options", "type": "text", "label": "Max Depth Options", "default": "5,10,None"},
+        {"name": "cv", "type": "number", "label": "CV Folds", "default": 5},
+        {
+            "name": "scoring",
+            "type": "select",
+            "label": "Scoring",
+            "default": "accuracy",
+            "options": ["accuracy", "f1_weighted", "f1_macro", "precision_weighted", "recall_weighted"]
+        },
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}

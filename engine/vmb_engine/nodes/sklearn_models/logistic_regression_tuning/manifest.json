@@ -1,0 +1,29 @@
+{
+    "id": "sklearn_models.logistic_regression_tuning",
+    "category": "Hyperparameter Tuning (sklearn)",
+    "label": "Logistic Regression (Grid Search)",
+    "inputs": [{"name": "train_table", "type": "Table"}],
+    "outputs": [
+        {"name": "model", "type": "Model"},
+        {"name": "metrics", "type": "Metrics"}
+    ],
+    "params": [
+        {
+            "name": "target_column",
+            "type": "select",
+            "label": "Target Column",
+            "default": "",
+            "options_source": {"input_port": "train_table"}
+        },
+        {"name": "C_options", "type": "text", "label": "C Options", "default": "0.01,0.1,1,10"},
+        {"name": "cv", "type": "number", "label": "CV Folds", "default": 5},
+        {
+            "name": "scoring",
+            "type": "select",
+            "label": "Scoring",
+            "default": "accuracy",
+            "options": ["accuracy", "f1_weighted", "f1_macro", "precision_weighted", "recall_weighted"]
+        },
+        {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
+    ]
+}

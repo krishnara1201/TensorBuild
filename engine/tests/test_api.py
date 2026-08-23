@@ -60,6 +60,23 @@ def test_get_nodes_lists_registered_manifests(client):
     assert "sklearn_models.random_forest" in ids
 
 
+def test_get_nodes_includes_hyperparameter_tuning_category(client):
+    response = client.get("/nodes")
+    assert response.status_code == 200
+    manifests = response.json()
+
+    ids = {m["id"] for m in manifests}
+    assert {
+        "sklearn_models.random_forest_tuning",
+        "sklearn_models.logistic_regression_tuning",
+        "sklearn_models.svm_tuning",
+    }.issubset(ids)
+
+    tuning_manifests = [m for m in manifests if m["id"].endswith("_tuning")]
+    assert len(tuning_manifests) == 3
+    assert all(m["category"] == "Hyperparameter Tuning (sklearn)" for m in tuning_manifests)
+
+
 def test_run_pipeline_returns_metrics(client, tmp_path):
     csv_path = tmp_path / "d.csv"
     csv_path.write_text("a,label\n" + "\n".join(f"{i},{i % 2}" for i in range(40)))
@@ -92,6 +109,45 @@ def test_codegen_endpoint_returns_script(client, tmp_path):
     assert response.status_code == 200
     code = response.json()["code"]
     assert "RandomForestClassifier" in code
+
+
+def test_codegen_endpoint_returns_422_for_malformed_tuning_grid(client, tmp_path):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n1,0\n")
+
+    pipeline = {
+        "nodes": [
+            {"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}},
+            {
+                "id": "n2",
+                "type": "data.train_test_split",
+                "params": {"test_size": 0.25, "random_state": 42},
+            },
+            {
+                "id": "n3",
+                "type": "sklearn_models.random_forest_tuning",
+                "params": {
+                    "target_column": "label",
+                    # Trailing comma yields an empty piece, which
+                    # int("") raises ValueError inside _parse_grid.
+                    "n_estimators_options": "10,",
+                    "max_depth_options": "5,10,None",
+                    "cv": 5,
+                    "scoring": "accuracy",
+                    "random_state": 42,
+                },
+            },
+        ],
+        "edges": [
+            {"from": "n1.table", "to": "n2.table"},
+            {"from": "n2.train", "to": "n3.train_table"},
+        ],
+    }
+
+    response = client.post("/pipeline/codegen", json=pipeline)
+
+    assert response.status_code == 422
+    assert "n3" in response.json()["detail"]
 
 
 def _mlp_pipeline(csv_path: str) -> dict:
