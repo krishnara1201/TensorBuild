@@ -5,7 +5,13 @@
     "inputs": [{"name": "train_table", "type": "Table"}],
     "outputs": [{"name": "model", "type": "Model"}],
     "params": [
-        {"name": "target_column", "type": "text", "label": "Target Column", "default": ""},
+        {
+            "name": "target_column",
+            "type": "select",
+            "label": "Target Column",
+            "default": "",
+            "options_source": {"input_port": "train_table"}
+        },
         {"name": "C", "type": "number", "label": "C", "default": 1.0},
         {"name": "random_state", "type": "number", "label": "Random State", "default": 42}
     ]

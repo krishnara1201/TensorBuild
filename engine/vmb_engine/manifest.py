@@ -3,12 +3,17 @@ from pydantic import BaseModel, Field
 from vmb_engine.ir import Port
 
 
+class OptionsSource(BaseModel):
+    input_port: str
+
+
 class ParamSpec(BaseModel):
     name: str
     type: str
     label: str
     default: object = None
     options: list[str] | None = None
+    options_source: OptionsSource | None = None
 
 
 class NodeManifest(BaseModel):

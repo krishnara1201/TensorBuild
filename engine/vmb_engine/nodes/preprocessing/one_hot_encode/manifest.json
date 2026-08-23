@@ -11,6 +11,12 @@
         {"name": "test", "type": "Table"}
     ],
     "params": [
-        {"name": "target_column", "type": "text", "label": "Target Column (excluded)", "default": ""}
+        {
+            "name": "target_column",
+            "type": "select",
+            "label": "Target Column (excluded)",
+            "default": "",
+            "options_source": {"input_port": "train_table"}
+        }
     ]
 }

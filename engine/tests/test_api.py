@@ -241,3 +241,17 @@ def test_preview_endpoint_returns_422_for_unknown_port(client, tmp_path):
     )
 
     assert response.status_code == 422
+
+
+def test_get_nodes_includes_options_source_for_target_column_params(client):
+    response = client.get("/nodes")
+    manifests = {m["id"]: m for m in response.json()}
+
+    logistic = manifests["sklearn_models.logistic_regression"]
+    target_param = next(p for p in logistic["params"] if p["name"] == "target_column")
+    assert target_param["type"] == "select"
+    assert target_param["options_source"] == {"input_port": "train_table"}
+
+    evaluator = manifests["evaluation.evaluate_classifier"]
+    target_param = next(p for p in evaluator["params"] if p["name"] == "target_column")
+    assert target_param["options_source"] == {"input_port": "test_table"}
