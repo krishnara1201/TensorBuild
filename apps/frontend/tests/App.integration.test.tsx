@@ -131,7 +131,7 @@ describe('App integration — async training run (real client.ts + hooks, WS stu
     vi.unstubAllGlobals()
   })
 
-  it('opens a WebSocket to /ws/runs/{run_id} and shows the training monitor when the engine returns 202', async () => {
+  it('opens a WebSocket to /ws/runs/{run_id} and shows training status in the visualizations panel when the engine returns 202', async () => {
     renderApp()
 
     await screen.findByText('CSV Loader')

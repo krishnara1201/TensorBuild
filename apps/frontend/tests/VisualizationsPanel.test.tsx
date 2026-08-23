@@ -62,6 +62,22 @@ describe('VisualizationsPanel', () => {
     expect(screen.queryByText('label distribution')).not.toBeInTheDocument()
   })
 
+  it('does not render a histogram section for a numeric-dtype column with zero numeric values', () => {
+    render(
+      <VisualizationsPanel
+        runMetrics={undefined}
+        previewData={{
+          columns: [{ name: 'age', dtype: 'int64' }],
+          rows: [[null], [null]],
+          total_rows: 2,
+        }}
+        trainingState={undefined}
+      />,
+    )
+    expect(screen.queryByText('age distribution')).not.toBeInTheDocument()
+    expect(screen.getByText('Run the pipeline or preview data to see charts here.')).toBeInTheDocument()
+  })
+
   it('renders a training curve section with a status heading while a run is in progress', () => {
     render(
       <VisualizationsPanel

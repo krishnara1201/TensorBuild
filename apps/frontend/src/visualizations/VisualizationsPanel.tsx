@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 import type { PreviewResult } from '../api/types'
 import { extractConfusionMatrix, extractRocCurve } from '../metrics/metricsHelpers'
 import type { TrainingState } from '../training/useTrainingRun'
@@ -21,7 +21,7 @@ function trainingStatusLabel(status: TrainingState['status']): string {
 }
 
 export function VisualizationsPanel({ runMetrics, previewData, trainingState }: VisualizationsPanelProps) {
-  const histograms = previewData ? computeHistograms(previewData) : []
+  const histograms = previewData ? computeHistograms(previewData).filter((histogram) => histogram.bins.length > 0) : []
   const chartableMetricsEntries = runMetrics
     ? Object.entries(runMetrics).filter(([, value]) => {
         const metrics = value as Record<string, unknown>
@@ -40,6 +40,7 @@ export function VisualizationsPanel({ runMetrics, previewData, trainingState }: 
             <XAxis dataKey="epoch" />
             <YAxis />
             <Tooltip />
+            <Legend />
             <Line type="monotone" dataKey="loss" name="Loss" stroke="var(--color-accent)" dot={false} />
             <Line
               type="monotone"
