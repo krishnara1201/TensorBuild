@@ -6,7 +6,7 @@ import type { PipelineEdge, PipelineNode } from './canvas/types'
 import { CodeViewPanel } from './codeview/CodeViewPanel'
 import { InspectorPanel } from './inspector/InspectorPanel'
 import { toIR } from './ir/convert'
-import { MetricsView } from './metrics/MetricsView'
+import { MetricsSummary } from './metrics/MetricsSummary'
 import { NodePalette } from './palette/NodePalette'
 import { PreviewPanel } from './preview/PreviewPanel'
 import { usePreview } from './preview/usePreview'
@@ -86,7 +86,7 @@ export function App() {
           {Object.entries(runMutation.data.metrics).map(([ref, value]) => (
             <div key={ref} className="metrics-block">
               <h3 className="metrics-block-heading">{ref}</h3>
-              <MetricsView metrics={value as Record<string, unknown>} />
+              <MetricsSummary metrics={value as Record<string, unknown>} />
             </div>
           ))}
         </div>
