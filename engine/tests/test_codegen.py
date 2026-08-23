@@ -73,6 +73,44 @@ def test_generated_code_is_syntactically_valid_python(registry):
     compile(code, "<generated>", "exec")  # raises SyntaxError if invalid
 
 
+def test_generate_code_uses_readable_variable_names(registry):
+    code = generate_code(_pipeline(), registry)
+
+    assert "n1_table" not in code
+    assert "n2_train" not in code
+    assert "n3_model" not in code
+    assert "csv_loader_table = pd.read_csv" in code
+    assert "random_forest_model = RandomForestClassifier" in code
+
+
+def test_generate_code_adds_node_header_comments(registry):
+    code = generate_code(_pipeline(), registry)
+
+    assert "# --- CSV Loader (n1) ---" in code
+    assert "# --- Train/Test Split (n2) ---" in code
+    assert "# --- Random Forest (n3) ---" in code
+    assert "# --- Evaluate Classifier (n4) ---" in code
+    # Headers precede their node's code
+    assert code.index("# --- CSV Loader (n1) ---") < code.index("pd.read_csv")
+    assert code.index("# --- Random Forest (n3) ---") < code.index("RandomForestClassifier(")
+
+
+def test_generate_code_disambiguates_colliding_slugs_with_node_id(registry):
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "data.csv_loader", "params": {"path": "a.csv"}},
+                {"id": "n5", "type": "data.csv_loader", "params": {"path": "b.csv"}},
+            ],
+            "edges": [],
+        }
+    )
+    code = generate_code(ir, registry)
+
+    assert "csv_loader_n1_table = pd.read_csv" in code
+    assert "csv_loader_n5_table = pd.read_csv" in code
+
+
 def _pipeline_with_malformed_tuning_grid() -> PipelineIR:
     return PipelineIR.model_validate(
         {
