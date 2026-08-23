@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from vmb_engine.executor import ExecutorError, execute_pipeline, topological_sort
+from vmb_engine.executor import ExecutorError, ancestors_of, execute_pipeline, topological_sort
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry
 
@@ -264,3 +264,40 @@ def test_collect_metrics_outputs_filters_by_port_type(tmp_path, registry):
 
     assert set(metrics) == {"n4.metrics"}
     assert 0.0 <= metrics["n4.metrics"]["accuracy"] <= 1.0
+
+
+def test_ancestors_of_returns_target_and_all_upstream_nodes():
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "x", "params": {}},
+                {"id": "n2", "type": "x", "params": {}},
+                {"id": "n3", "type": "x", "params": {}},
+                {"id": "n4", "type": "x", "params": {}},
+            ],
+            "edges": [
+                {"from": "n1.out", "to": "n2.in"},
+                {"from": "n1.out", "to": "n3.in"},
+                {"from": "n2.out", "to": "n4.in"},
+                {"from": "n3.out", "to": "n4.in"},
+            ],
+        }
+    )
+    assert ancestors_of(ir, "n4") == {"n1", "n2", "n3", "n4"}
+
+
+def test_ancestors_of_excludes_disconnected_branch():
+    ir = PipelineIR.model_validate(
+        {
+            "nodes": [
+                {"id": "n1", "type": "x", "params": {}},
+                {"id": "n2", "type": "x", "params": {}},
+                {"id": "n3", "type": "x", "params": {}},
+            ],
+            "edges": [
+                {"from": "n1.out", "to": "n2.in"},
+            ],
+        }
+    )
+    assert ancestors_of(ir, "n2") == {"n1", "n2"}
+    assert ancestors_of(ir, "n3") == {"n3"}

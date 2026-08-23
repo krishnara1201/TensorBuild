@@ -48,6 +48,24 @@ def topological_sort(ir: PipelineIR) -> list[str]:
     return order
 
 
+def ancestors_of(ir: PipelineIR, target_node_id: str) -> set[str]:
+    incoming: dict[str, set[str]] = defaultdict(set)
+    for edge in ir.edges:
+        from_node, _ = split_ref(edge.from_)
+        to_node, _ = split_ref(edge.to)
+        incoming[to_node].add(from_node)
+
+    visited: set[str] = set()
+    stack = [target_node_id]
+    while stack:
+        node_id = stack.pop()
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        stack.extend(incoming[node_id])
+    return visited
+
+
 def execute_pipeline(
     ir: PipelineIR,
     registry: NodeRegistry,
