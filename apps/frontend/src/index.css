@@ -386,6 +386,10 @@ body {
   color: var(--color-text-secondary);
 }
 
+.metrics-list {
+  margin: 0;
+}
+
 .metrics-block {
   margin-bottom: var(--space-4);
 }
@@ -435,6 +439,11 @@ body {
 .confusion-matrix-diagonal {
   background: rgba(62, 207, 142, 0.18);
   font-weight: 600;
+}
+
+.roc-curve-chart {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
 }
 
 .metrics-fallback {
