@@ -39,6 +39,8 @@ describe('TrainingMonitor', () => {
 
     expect(screen.getByText('Training complete')).toBeInTheDocument()
     expect(screen.getByText(/n6\.metrics/)).toBeInTheDocument()
+    expect(screen.getByText('Accuracy')).toBeInTheDocument()
+    expect(screen.getByText('0.9000')).toBeInTheDocument()
   })
 
   it('shows the error banner when training fails', () => {

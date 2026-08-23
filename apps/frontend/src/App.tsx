@@ -82,13 +82,14 @@ export function App() {
 
       {runMutation.error && <p className="error-banner">{runMutation.error.message}</p>}
       {runMutation.data?.kind === 'sync' && (
-        <ul className="metrics-list">
+        <div className="metrics-list">
           {Object.entries(runMutation.data.metrics).map(([ref, value]) => (
-            <li key={ref}>
-              {ref}: {JSON.stringify(value)}
-            </li>
+            <div key={ref} className="metrics-block">
+              <h3 className="metrics-block-heading">{ref}</h3>
+              <MetricsView metrics={value as Record<string, unknown>} />
+            </div>
           ))}
-        </ul>
+        </div>
       )}
       {codeMutation.error && <p className="error-banner">{codeMutation.error.message}</p>}
 

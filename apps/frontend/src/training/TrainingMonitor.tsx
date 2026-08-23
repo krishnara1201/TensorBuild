@@ -1,4 +1,5 @@
 import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
+import { MetricsView } from '../metrics/MetricsView'
 import { useTrainingRun, type TrainingState } from './useTrainingRun'
 
 export interface TrainingMonitorProps {
@@ -40,13 +41,14 @@ export function TrainingMonitor({ runId, onClose }: TrainingMonitorProps) {
       </div>
 
       {state.status === 'complete' && (
-        <ul className="metrics-list">
+        <div className="metrics-list">
           {Object.entries(state.metrics).map(([ref, value]) => (
-            <li key={ref}>
-              {ref}: {JSON.stringify(value)}
-            </li>
+            <div key={ref} className="metrics-block">
+              <h3 className="metrics-block-heading">{ref}</h3>
+              <MetricsView metrics={value as Record<string, unknown>} />
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       {state.status === 'error' && <p className="error-banner">{state.error}</p>}

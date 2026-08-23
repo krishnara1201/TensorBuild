@@ -97,6 +97,8 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByText(/n4\.metrics/)).toBeInTheDocument()
+    expect(screen.getByText('Accuracy')).toBeInTheDocument()
+    expect(screen.getByText('0.9500')).toBeInTheDocument()
   })
 
   it('opens the training monitor when the run mutation returns an async outcome', async () => {
