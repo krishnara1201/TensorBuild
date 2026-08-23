@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from vmb_engine.executor import split_ref, topological_sort
+from vmb_engine.executor import ExecutorError, split_ref, topological_sort
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry
 
@@ -29,7 +29,12 @@ def generate_code(ir: PipelineIR, registry: NodeRegistry) -> str:
 
         var_names = {port.name: f"{node_id}_{port.name}" for port in node_def.manifest.outputs}
 
-        lines = node_def.codegen(input_vars, node_spec.params, var_names)
+        try:
+            lines = node_def.codegen(input_vars, node_spec.params, var_names)
+        except Exception as exc:
+            raise ExecutorError(
+                f"node '{node_id}' ({node_spec.type}) codegen failed: {exc}"
+            ) from exc
         body_lines.extend(lines)
 
     import_lines = sorted(all_imports)
