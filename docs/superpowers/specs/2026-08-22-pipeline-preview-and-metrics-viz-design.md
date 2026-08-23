@@ -149,14 +149,22 @@ both; `ParamSpec` (TypeScript) and the Pydantic param-schema model both
 gain `options_source` as an optional field.
 
 **Nodes updated to use it:** every node with a free-text
-`target_column`-shaped param —
-`sklearn_models/{linear_regression,logistic_regression,random_forest,svm}`,
-`pytorch_models/train`, and `preprocessing/{standardize,one_hot_encode}`
-(whose `target_column (excluded)` param is the same shape, just excluding
-rather than selecting the column). (`kmeans` is unsupervised, no target
-column, untouched.) In each case `options_source.input_port` points at
-that node's existing `train_table` input — no new ports, just a schema
-annotation on an existing param.
+`target_column`-shaped param, in two groups by which input port supplies
+the columns:
+
+- `options_source.input_port: "train_table"` —
+  `sklearn_models/{linear_regression,logistic_regression,random_forest,svm}`,
+  `pytorch_models/train`, and `preprocessing/{standardize,one_hot_encode}`
+  (whose `target_column (excluded)` param is the same shape, just
+  excluding rather than selecting the column).
+- `options_source.input_port: "test_table"` —
+  `evaluation/{evaluate_classifier,evaluate_regressor,confusion_matrix}`,
+  which take a `test_table` input rather than `train_table` and pick the
+  target column from that instead.
+
+(`kmeans` is unsupervised, no target column, untouched.) In every case
+this is a schema annotation on an existing param against an existing
+input port — no new ports.
 
 ## Frontend: dynamic dropdown (Inspector)
 
