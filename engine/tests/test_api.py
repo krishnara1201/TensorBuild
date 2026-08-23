@@ -60,6 +60,23 @@ def test_get_nodes_lists_registered_manifests(client):
     assert "sklearn_models.random_forest" in ids
 
 
+def test_get_nodes_includes_hyperparameter_tuning_category(client):
+    response = client.get("/nodes")
+    assert response.status_code == 200
+    manifests = response.json()
+
+    ids = {m["id"] for m in manifests}
+    assert {
+        "sklearn_models.random_forest_tuning",
+        "sklearn_models.logistic_regression_tuning",
+        "sklearn_models.svm_tuning",
+    }.issubset(ids)
+
+    tuning_manifests = [m for m in manifests if m["id"].endswith("_tuning")]
+    assert len(tuning_manifests) == 3
+    assert all(m["category"] == "Hyperparameter Tuning (sklearn)" for m in tuning_manifests)
+
+
 def test_run_pipeline_returns_metrics(client, tmp_path):
     csv_path = tmp_path / "d.csv"
     csv_path.write_text("a,label\n" + "\n".join(f"{i},{i % 2}" for i in range(40)))
