@@ -85,7 +85,13 @@ export function App() {
           setEdges={setEdges}
           onSelectNode={setSelectedNodeId}
         />
-        <InspectorPanel node={selectedNode} onParamChange={handleParamChange} />
+        <InspectorPanel
+          node={selectedNode}
+          nodes={nodes}
+          edges={edges}
+          onParamChange={handleParamChange}
+          onPreview={() => {}}
+        />
       </div>
 
       {isCodeViewOpen && codeMutation.data && (
