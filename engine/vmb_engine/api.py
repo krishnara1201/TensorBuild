@@ -5,18 +5,28 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.websockets import WebSocketDisconnect
 
 from vmb_engine.codegen import generate_code
 from vmb_engine.executor import (
     ExecutorError,
+    PreviewError,
     collect_metrics_outputs,
     execute_pipeline,
+    execute_subgraph_preview,
     pipeline_has_long_running_node,
 )
 from vmb_engine.ir import PipelineIR
 from vmb_engine.registry import NodeRegistry, RegistryError
 from vmb_engine.runs import RunManager, RunNotFoundError
+
+
+class PreviewRequest(BaseModel):
+    pipeline: PipelineIR
+    target_node_id: str
+    port: str
+
 
 DEFAULT_NODES_DIR = Path(__file__).resolve().parent / "nodes"
 
@@ -56,6 +66,20 @@ def create_app(node_paths: list[Path] | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         return {"metrics": collect_metrics_outputs(ir, registry, context)}
+
+    @app.post("/pipeline/preview")
+    async def preview_node(request: PreviewRequest):
+        try:
+            result = await asyncio.to_thread(
+                execute_subgraph_preview,
+                request.pipeline,
+                registry,
+                request.target_node_id,
+                request.port,
+            )
+        except (ExecutorError, RegistryError, PreviewError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return result
 
     @app.websocket("/ws/runs/{run_id}")
     async def stream_run_events(websocket: WebSocket, run_id: str):

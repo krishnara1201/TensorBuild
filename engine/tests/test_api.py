@@ -187,3 +187,57 @@ def test_ws_run_events_unknown_run_id_closes_with_policy_violation(client):
             ws.receive_json()
 
     assert exc_info.value.code == 1008
+
+
+def test_preview_endpoint_returns_columns_rows_and_total(client, tmp_path):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n" + "\n".join(f"{i},{i % 2}" for i in range(10)))
+    pipeline = {
+        "nodes": [{"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}}],
+        "edges": [],
+    }
+
+    response = client.post(
+        "/pipeline/preview",
+        json={"pipeline": pipeline, "target_node_id": "n1", "port": "table"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {c["name"] for c in body["columns"]} == {"a", "label"}
+    assert body["total_rows"] == 10
+    assert len(body["rows"]) == 10
+
+
+def test_preview_endpoint_returns_422_for_long_running_ancestor(client):
+    pipeline = {
+        "nodes": [
+            {"id": "n1", "type": "pytorch_models.input", "params": {"random_state": 42}},
+            {"id": "n2", "type": "pytorch_models.train", "params": {"target_column": "label"}},
+        ],
+        "edges": [{"from": "n1.architecture", "to": "n2.architecture"}],
+    }
+
+    response = client.post(
+        "/pipeline/preview",
+        json={"pipeline": pipeline, "target_node_id": "n2", "port": "model"},
+    )
+
+    assert response.status_code == 422
+    assert "training node" in response.json()["detail"]
+
+
+def test_preview_endpoint_returns_422_for_unknown_port(client, tmp_path):
+    csv_path = tmp_path / "d.csv"
+    csv_path.write_text("a,label\n1,0\n")
+    pipeline = {
+        "nodes": [{"id": "n1", "type": "data.csv_loader", "params": {"path": str(csv_path)}}],
+        "edges": [],
+    }
+
+    response = client.post(
+        "/pipeline/preview",
+        json={"pipeline": pipeline, "target_node_id": "n1", "port": "nope"},
+    )
+
+    assert response.status_code == 422
