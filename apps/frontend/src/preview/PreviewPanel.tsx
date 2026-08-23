@@ -2,19 +2,14 @@ import type { PreviewState } from './usePreview'
 
 export interface PreviewPanelProps {
   state: PreviewState
-  onClose: () => void
 }
 
-export function PreviewPanel({ state, onClose }: PreviewPanelProps) {
+export function PreviewPanel({ state }: PreviewPanelProps) {
   return (
-    <aside className="preview-panel">
-      <div className="modal-panel-header">
-        <h2>Data Preview</h2>
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
-
+    <div className="preview-panel">
+      {state.status === 'idle' && (
+        <p className="output-panel-empty">Select "Preview Output" on a node to see its data here.</p>
+      )}
       {state.status === 'loading' && <p>Loading…</p>}
       {state.status === 'error' && <p className="error-banner">{state.error}</p>}
       {state.status === 'success' && (
@@ -47,6 +42,6 @@ export function PreviewPanel({ state, onClose }: PreviewPanelProps) {
           </p>
         </>
       )}
-    </aside>
+    </div>
   )
 }

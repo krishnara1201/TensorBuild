@@ -6,9 +6,8 @@ import type { PipelineEdge, PipelineNode } from './canvas/types'
 import { CodeViewPanel } from './codeview/CodeViewPanel'
 import { InspectorPanel } from './inspector/InspectorPanel'
 import { toIR } from './ir/convert'
-import { MetricsSummary } from './metrics/MetricsSummary'
 import { NodePalette } from './palette/NodePalette'
-import { PreviewPanel } from './preview/PreviewPanel'
+import { OutputPanel, type OutputTab } from './output/OutputPanel'
 import { usePreview } from './preview/usePreview'
 import { TrainingMonitor } from './training/TrainingMonitor'
 
@@ -18,7 +17,7 @@ export function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isCodeViewOpen, setCodeViewOpen] = useState(false)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
-  const [previewTarget, setPreviewTarget] = useState<{ nodeId: string; port: string } | null>(null)
+  const [outputTab, setOutputTab] = useState<OutputTab>('results')
   const preview = usePreview()
 
   const runMutation = useRunPipeline()
@@ -57,16 +56,11 @@ export function App() {
 
   const handlePreview = useCallback(
     (nodeId: string, port: string) => {
-      setPreviewTarget({ nodeId, port })
+      setOutputTab('preview')
       preview.runPreview(toIR(nodes, edges), nodeId, port)
     },
     [nodes, edges, preview],
   )
-
-  const handleClosePreview = useCallback(() => {
-    setPreviewTarget(null)
-    preview.reset()
-  }, [preview])
 
   return (
     <div className="app-layout">
@@ -80,17 +74,6 @@ export function App() {
         </button>
       </header>
 
-      {runMutation.error && <p className="error-banner">{runMutation.error.message}</p>}
-      {runMutation.data?.kind === 'sync' && (
-        <div className="metrics-list">
-          {Object.entries(runMutation.data.metrics).map(([ref, value]) => (
-            <div key={ref} className="metrics-block">
-              <h3 className="metrics-block-heading">{ref}</h3>
-              <MetricsSummary metrics={value as Record<string, unknown>} />
-            </div>
-          ))}
-        </div>
-      )}
       {codeMutation.error && <p className="error-banner">{codeMutation.error.message}</p>}
 
       <div className="app-body">
@@ -113,11 +96,18 @@ export function App() {
         />
       </div>
 
+      <OutputPanel
+        activeTab={outputTab}
+        onTabChange={setOutputTab}
+        runMetrics={runMutation.data?.kind === 'sync' ? runMutation.data.metrics : undefined}
+        runError={runMutation.error?.message ?? null}
+        previewState={preview.state}
+      />
+
       {isCodeViewOpen && codeMutation.data && (
         <CodeViewPanel code={codeMutation.data.code} onClose={() => setCodeViewOpen(false)} />
       )}
       {activeRunId && <TrainingMonitor runId={activeRunId} onClose={() => setActiveRunId(null)} />}
-      {previewTarget && <PreviewPanel state={preview.state} onClose={handleClosePreview} />}
     </div>
   )
 }

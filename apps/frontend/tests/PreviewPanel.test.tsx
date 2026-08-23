@@ -1,17 +1,21 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { PreviewPanel } from '../src/preview/PreviewPanel'
 import type { PreviewState } from '../src/preview/usePreview'
 
 describe('PreviewPanel', () => {
+  it('shows a prompt to select a node when idle', () => {
+    render(<PreviewPanel state={{ status: 'idle' }} />)
+    expect(screen.getByText('Select "Preview Output" on a node to see its data here.')).toBeInTheDocument()
+  })
+
   it('shows a loading state', () => {
-    render(<PreviewPanel state={{ status: 'loading' }} onClose={vi.fn()} />)
+    render(<PreviewPanel state={{ status: 'loading' }} />)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('shows an error message', () => {
-    render(<PreviewPanel state={{ status: 'error', error: 'bad path' }} onClose={vi.fn()} />)
+    render(<PreviewPanel state={{ status: 'error', error: 'bad path' }} />)
     expect(screen.getByText('bad path')).toBeInTheDocument()
   })
 
@@ -30,20 +34,11 @@ describe('PreviewPanel', () => {
         total_rows: 4200,
       },
     }
-    render(<PreviewPanel state={state} onClose={vi.fn()} />)
+    render(<PreviewPanel state={state} />)
 
     expect(screen.getByText('age')).toBeInTheDocument()
     expect(screen.getByText('int64')).toBeInTheDocument()
     expect(screen.getByText('yes')).toBeInTheDocument()
     expect(screen.getByText('Showing 2 of 4,200 rows')).toBeInTheDocument()
-  })
-
-  it('calls onClose when the close button is clicked', async () => {
-    const onClose = vi.fn()
-    render(<PreviewPanel state={{ status: 'idle' }} onClose={onClose} />)
-
-    await userEvent.click(screen.getByRole('button', { name: /close/i }))
-
-    expect(onClose).toHaveBeenCalled()
   })
 })

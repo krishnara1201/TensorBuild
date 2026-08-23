@@ -28,17 +28,6 @@ vi.mock('../src/inspector/InspectorPanel', () => ({
   ),
 }))
 
-vi.mock('../src/preview/PreviewPanel', () => ({
-  PreviewPanel: ({ onClose }: { onClose: () => void }) => (
-    <div>
-      <p>Preview panel</p>
-      <button type="button" onClick={onClose}>
-        Close preview
-      </button>
-    </div>
-  ),
-}))
-
 function mockMutation(overrides: Partial<ReturnType<typeof client.useRunPipeline>>) {
   return {
     mutate: vi.fn(),
@@ -128,7 +117,7 @@ describe('App', () => {
     expect(screen.getByText('Generated Code')).toBeInTheDocument()
   })
 
-  it('opens and closes the preview panel when Preview is triggered from the inspector', async () => {
+  it('switches to the Data Preview tab and shows preview data when Preview is triggered from the inspector', async () => {
     vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
     vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
     vi.mocked(client.previewSubgraph).mockResolvedValue({ columns: [], rows: [], total_rows: 0 })
@@ -136,10 +125,6 @@ describe('App', () => {
     render(<App />)
     await userEvent.click(screen.getByText('Fake preview trigger'))
 
-    expect(await screen.findByText('Preview panel')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByText('Close preview'))
-
-    expect(screen.queryByText('Preview panel')).not.toBeInTheDocument()
+    expect(await screen.findByText('Showing 0 of 0 rows')).toBeInTheDocument()
   })
 })
