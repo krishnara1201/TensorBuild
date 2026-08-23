@@ -118,7 +118,7 @@ describe('useTrainingRun', () => {
 
       send(socket, { event: 'node_error', node_id: 'n5', error: 'CUDA out of memory' })
 
-      expect(result.current).toEqual({ status: 'error', history: [], error: 'CUDA out of memory' })
+      expect(result.current).toEqual({ status: 'error', history: [], error: 'CUDA out of memory', nodeId: 'n5' })
     } finally {
       vi.useRealTimers()
     }

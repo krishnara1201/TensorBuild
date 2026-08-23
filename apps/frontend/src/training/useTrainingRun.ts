@@ -13,7 +13,7 @@ export type TrainingState =
   | { status: 'connecting'; history: ProgressEvent[] }
   | { status: 'running'; history: ProgressEvent[] }
   | { status: 'complete'; history: ProgressEvent[]; metrics: Record<string, unknown> }
-  | { status: 'error'; history: ProgressEvent[]; error: string }
+  | { status: 'error'; history: ProgressEvent[]; error: string; nodeId?: string }
 
 type IncomingEvent =
   | ProgressEvent
@@ -63,7 +63,7 @@ export function useTrainingRun(runId: string | null): TrainingState {
           if (data.event === 'complete') {
             return { status: 'complete', history: prev.history, metrics: data.metrics }
           }
-          return { status: 'error', history: prev.history, error: data.error }
+          return { status: 'error', history: prev.history, error: data.error, nodeId: data.node_id }
         })
       }
 
