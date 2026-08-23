@@ -75,6 +75,15 @@ describe('App', () => {
     expect(screen.getByText('unknown node type')).toBeInTheDocument()
   })
 
+  it('shows the codegen error message when the get-code mutation fails', () => {
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({ error: new Error('codegen exploded') }))
+
+    render(<App />)
+
+    expect(screen.getByText('codegen exploded')).toBeInTheDocument()
+  })
+
   it('renders returned metrics on a successful synchronous run', () => {
     vi.mocked(client.useRunPipeline).mockReturnValue(
       mockMutation({ data: { kind: 'sync', metrics: { 'n4.metrics': { accuracy: 0.95 } } } }),
