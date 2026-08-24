@@ -26,7 +26,7 @@ runs with no TensorBuild install at all.
 Download the latest installer for your platform from the
 [Releases page](../../releases):
 
-- **macOS**: `.dmg`
+- **macOS** (Apple Silicon): `.dmg`
 - **Windows**: `.msi`
 
 These builds are unsigned for now, so macOS Gatekeeper and Windows
