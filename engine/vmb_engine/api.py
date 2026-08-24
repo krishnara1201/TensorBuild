@@ -36,17 +36,24 @@ def create_app(node_paths: list[Path] | None = None) -> FastAPI:
     registry.scan(node_paths if node_paths is not None else [DEFAULT_NODES_DIR])
     run_manager = RunManager()
 
-    app = FastAPI(title="Visual Model Builder Engine")
+    app = FastAPI(title="TensorBuild Engine")
 
-    # The frontend dev server (and, later, a Tauri webview loading it) runs
-    # on a different origin than this API, so the browser enforces CORS:
+    # The frontend dev server (and the packaged app's Tauri webview) run on
+    # a different origin than this API, so the browser enforces CORS:
     # without this, GET /nodes responses get silently discarded and POST
     # /pipeline/run and /pipeline/codegen preflight OPTIONS requests get a
-    # 405 from the router. This must ship with the app, not stay dev-only
-    # scaffolding, since the packaged app will hit the same-origin problem.
+    # 405 from the router. localhost:5173 covers `npm run dev` / `cargo
+    # tauri dev`; tauri://localhost (macOS/Linux) and http://tauri.localhost
+    # (Windows) cover a `cargo tauri build` bundle, which loads its window
+    # from those origins instead of a dev server.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "tauri://localhost",
+            "http://tauri.localhost",
+        ],
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )

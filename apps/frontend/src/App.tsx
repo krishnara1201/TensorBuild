@@ -112,7 +112,7 @@ export function App() {
   return (
     <div className="app-layout">
       <header className="app-header">
-        <h1>Visual Model Builder</h1>
+        <h1>TensorBuild</h1>
         <button type="button" className={isRunning ? 'is-running' : undefined} onClick={handleRun} disabled={isRunning}>
           {isRunning ? 'Running…' : 'Run'}
         </button>

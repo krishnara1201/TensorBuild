@@ -4,6 +4,29 @@ use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+use tauri_plugin_shell::ShellExt;
+
+/// Either the dev-mode engine (spawned straight out of the repo's `.venv`,
+/// see `spawn_engine`) or the packaged sidecar binary (see
+/// `spawn_sidecar_engine`) — unified so callers have one thing to hold onto
+/// and kill at exit regardless of which mode is running.
+pub enum EngineChild {
+    Dev(Child),
+    Sidecar(CommandChild),
+}
+
+impl EngineChild {
+    pub fn kill(self) {
+        match self {
+            EngineChild::Dev(mut c) => kill_engine(&mut c),
+            EngineChild::Sidecar(c) => {
+                let _ = c.kill();
+            }
+        }
+    }
+}
+
 pub fn pick_free_port() -> io::Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.local_addr().map(|addr| addr.port())
@@ -21,6 +44,30 @@ pub fn spawn_engine(port: u16) -> io::Result<Child> {
     Command::new(uvicorn)
         .args(["vmb_engine.api:app", "--port", &port.to_string()])
         .spawn()
+}
+
+/// Spawns the packaged `tensorbuild-engine` sidecar binary (see
+/// `bundle.externalBin` in tauri.conf.json), used for release/bundled
+/// builds in place of `spawn_engine`'s repo-`.venv` dev path. Stderr lines
+/// are forwarded to this process's stderr for debugging; stdout/other
+/// events are drained but discarded so the sidecar's output channel never
+/// backs up.
+pub fn spawn_sidecar_engine(
+    app: &tauri::AppHandle,
+    port: u16,
+) -> Result<CommandChild, tauri_plugin_shell::Error> {
+    let sidecar = app.shell().sidecar("tensorbuild-engine")?;
+    let (mut rx, child) = sidecar.args(["--port", &port.to_string()]).spawn()?;
+
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            if let CommandEvent::Stderr(line) = event {
+                eprintln!("[engine] {}", String::from_utf8_lossy(&line));
+            }
+        }
+    });
+
+    Ok(child)
 }
 
 pub fn wait_for_ready(port: u16, timeout: Duration) -> bool {

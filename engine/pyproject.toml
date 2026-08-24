@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vmb-engine"
 version = "0.1.0"
-description = "Visual Model Builder Python engine"
+description = "TensorBuild Python engine"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110.0",
@@ -22,6 +22,9 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "httpx>=0.27.0",
+]
+packaging = [
+    "pyinstaller>=6.6.0",
 ]
 
 [tool.setuptools.packages.find]

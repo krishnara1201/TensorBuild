@@ -111,7 +111,7 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: /visual model builder/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /tensorbuild/i })).toBeInTheDocument()
   })
 
   it('calls the run mutation with the current (empty) pipeline IR when Run is clicked', async () => {

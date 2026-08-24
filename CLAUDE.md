@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Visual Model Builder: a cross-platform desktop app (Tauri + React frontend,
+TensorBuild: a cross-platform desktop app (Tauri + React frontend,
 Python/FastAPI engine) for visually building ML pipelines on a drag-and-drop
 node canvas — data loading, preprocessing, train/test split, model training
 (scikit-learn and, later, PyTorch), evaluation — with every pipeline

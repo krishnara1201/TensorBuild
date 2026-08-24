@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - platform: macos-13
+            args: "--target x86_64-apple-darwin"
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || matrix.platform == 'macos-13' && 'x86_64-apple-darwin' || '' }}
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix apps/frontend
+
+      - name: Install engine dependencies
+        run: python -m pip install -e "engine[packaging]"
+
+      - name: Determine Rust target triple
+        id: triple
+        shell: bash
+        run: echo "triple=$(rustc -Vv | grep '^host:' | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Freeze engine with PyInstaller
+        working-directory: engine
+        run: pyinstaller packaging/tensorbuild-engine.spec --distpath dist --workpath build --noconfirm
+
+      - name: Place engine sidecar for Tauri
+        shell: bash
+        run: |
+          mkdir -p apps/shell/src-tauri/binaries
+          triple="${{ steps.triple.outputs.triple }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp engine/dist/tensorbuild-engine.exe "apps/shell/src-tauri/binaries/tensorbuild-engine-${triple}.exe"
+          else
+            cp engine/dist/tensorbuild-engine "apps/shell/src-tauri/binaries/tensorbuild-engine-${triple}"
+            chmod +x "apps/shell/src-tauri/binaries/tensorbuild-engine-${triple}"
+          fi
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/shell
+          tagName: ${{ github.ref_name }}
+          releaseName: "TensorBuild ${{ github.ref_name }}"
+          releaseDraft: true
+          prerelease: false
+          args: --config tauri.release.conf.json ${{ matrix.args }}

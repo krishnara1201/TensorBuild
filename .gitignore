@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .venv/
 *.egg-info/
+engine/packaging/build/
+engine/packaging/dist/
+apps/shell/src-tauri/binaries/

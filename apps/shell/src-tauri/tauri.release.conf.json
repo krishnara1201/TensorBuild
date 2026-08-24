@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "dmg"],
+    "externalBin": ["binaries/tensorbuild-engine"]
+  }
+}
