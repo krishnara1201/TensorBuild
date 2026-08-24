@@ -1,25 +1,14 @@
-import { useEffect, useRef } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { ParamControlProps } from './types'
 
+// The window runs with native OS drag-drop disabled (dragDropEnabled: false
+// in tauri.conf.json) so the palette-to-canvas HTML5 drag-and-drop works on
+// Windows/WebView2 — the two can't coexist in one webview. That means this
+// control can't listen for a dropped file's path; Browse… (the file dialog)
+// is the only way to pick a file in the Tauri shell.
 export function FilePickerParam({ spec, value, onChange }: ParamControlProps) {
   const inTauri = isTauri()
-  const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
-
-  useEffect(() => {
-    if (!inTauri) return
-    const unlistenPromise = getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type !== 'drop') return
-      const [path] = event.payload.paths
-      if (path) onChangeRef.current(path)
-    })
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten())
-    }
-  }, [inTauri])
 
   if (!inTauri) {
     // No Tauri shell in this context (plain browser dev mode) — a browser
@@ -55,7 +44,7 @@ export function FilePickerParam({ spec, value, onChange }: ParamControlProps) {
         <input
           type="text"
           readOnly
-          placeholder="Drop a file here or browse…"
+          placeholder="Browse for a file…"
           value={typeof value === 'string' ? value : ''}
         />
         <button type="button" onClick={handleBrowse}>

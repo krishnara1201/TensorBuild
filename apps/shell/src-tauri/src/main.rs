@@ -1,3 +1,10 @@
+// A release build must not allocate a console — without this, Windows
+// gives vmb-shell.exe the default "console" subsystem, so every launch
+// pops a cmd window alongside the app window. Debug builds keep the
+// console so `cargo tauri dev` output (println!/eprintln! from this
+// process and the dev-mode engine child) stays visible.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod engine;
 
 use std::sync::{Arc, Mutex};
