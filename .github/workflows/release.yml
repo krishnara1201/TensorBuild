@@ -73,4 +73,4 @@ jobs:
           releaseName: "TensorBuild ${{ github.ref_name }}"
           releaseDraft: true
           prerelease: false
-          args: --config tauri.release.conf.json ${{ matrix.args }}
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
