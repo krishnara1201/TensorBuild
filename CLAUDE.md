@@ -158,7 +158,8 @@ node, check this test still passes before trusting either path in isolation.
 `vmb_engine/api.py`'s `create_app(node_paths=...)` builds a FastAPI app
 exposing `GET /nodes`, `POST /pipeline/run`, `POST /pipeline/codegen`,
 `POST /pipeline/preview` over the registry/executor/codegen above;
-`ExecutorError`/`RegistryError`/`PreviewError` map to 422 responses. A pipeline containing a `"long_running": true` node (the
+`ExecutorError`/`RegistryError`/`PreviewError` map to 422 responses. A
+pipeline containing a `"long_running": true` node (the
 `pytorch_models.train` node, and any future ones with the same flag) is
 executed differently: `POST /pipeline/run` returns `202 {"run_id": ...}`
 immediately instead of blocking, `RunManager` (`vmb_engine/runs.py`) runs
