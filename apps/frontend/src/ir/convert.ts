@@ -68,11 +68,17 @@ export function fromVmbFile(raw: unknown, manifests: NodeManifest[]): FromVmbRes
     if (!isPlainObject(node) || typeof node.id !== 'string' || typeof node.type !== 'string') {
       return { ok: false, error: 'This file is not a valid TensorBuild project (missing pipeline data).' }
     }
+    if ('params' in node && node.params !== undefined && !isPlainObject(node.params)) {
+      return { ok: false, error: 'This file is not a valid TensorBuild project (missing pipeline data).' }
+    }
   }
 
   // Validate each edge has the required shape
   for (const edge of irEdges) {
     if (!isPlainObject(edge) || typeof edge.from !== 'string' || typeof edge.to !== 'string') {
+      return { ok: false, error: 'This file is not a valid TensorBuild project (missing pipeline data).' }
+    }
+    if (!edge.from.includes('.') || !edge.to.includes('.')) {
       return { ok: false, error: 'This file is not a valid TensorBuild project (missing pipeline data).' }
     }
   }
@@ -89,19 +95,24 @@ export function fromVmbFile(raw: unknown, manifests: NodeManifest[]): FromVmbRes
     position: layoutMap[node.id] ?? { x: 0, y: 0 },
     data: {
       manifest: manifestById.get(node.type)!,
-      params: node.params,
+      params: node.params ?? {},
     },
   }))
+
+  const nodeTypeById = new Map(irNodes.map((node) => [node.id, node.type]))
 
   const edges: PipelineEdge[] = irEdges.map((edge) => {
     const from = splitRef(edge.from)
     const to = splitRef(edge.to)
+    const sourceManifest = manifestById.get(nodeTypeById.get(from.id) ?? '')
+    const portType = sourceManifest?.outputs.find((port) => port.name === from.port)?.type
     return {
       id: `${from.id}:${from.port}->${to.id}:${to.port}`,
       source: from.id,
       sourceHandle: from.port,
       target: to.id,
       targetHandle: to.port,
+      data: { portType },
     }
   })
 

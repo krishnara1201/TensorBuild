@@ -118,8 +118,29 @@ describe('fromVmbFile', () => {
       },
     ])
     expect(result.edges).toEqual([
-      { id: 'n1:table->n2:table', source: 'n1', sourceHandle: 'table', target: 'n2', targetHandle: 'table' },
+      {
+        id: 'n1:table->n2:table',
+        source: 'n1',
+        sourceHandle: 'table',
+        target: 'n2',
+        targetHandle: 'table',
+        data: { portType: 'Table' },
+      },
     ])
+  })
+
+  it('reconstructs edge data.portType from the source node manifest so reloaded edges keep their color coding', () => {
+    const nodes = [node('n1', csvManifest, { path: 'iris.csv' }), node('n2', splitManifest, {})]
+    const edges: PipelineEdge[] = [
+      { id: 'e1', source: 'n1', sourceHandle: 'table', target: 'n2', targetHandle: 'table' },
+    ]
+
+    const file = toVmbFile(nodes, edges)
+    const result = fromVmbFile(file, manifests)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.edges[0].data).toEqual({ portType: 'Table' })
   })
 
   it('fails with a clear error when the file references an unknown node type', () => {
@@ -222,6 +243,56 @@ describe('fromVmbFile', () => {
     const file = {
       version: 1,
       ir: { nodes: [{ id: 'n1', type: 'data.csv_loader', params: {} }], edges: [{ to: 'n2.table' }] },
+      layout: {},
+    }
+
+    const result = fromVmbFile(file, manifests)
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file is not a valid TensorBuild project (missing pipeline data).',
+    })
+  })
+
+  it('fails with a clear error when a node has a non-object params field', () => {
+    const file = {
+      version: 1,
+      ir: { nodes: [{ id: 'n1', type: 'data.csv_loader', params: 'not an object' }], edges: [] },
+      layout: {},
+    }
+
+    const result = fromVmbFile(file, manifests)
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file is not a valid TensorBuild project (missing pipeline data).',
+    })
+  })
+
+  it('accepts a node with no params field at all, defaulting it to {}', () => {
+    const file = {
+      version: 1,
+      ir: { nodes: [{ id: 'n1', type: 'data.csv_loader' }], edges: [] },
+      layout: {},
+    }
+
+    const result = fromVmbFile(file, manifests)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.nodes[0].data.params).toEqual({})
+  })
+
+  it('fails with a clear error when an edge ref has no dot separating node id and port', () => {
+    const file = {
+      version: 1,
+      ir: {
+        nodes: [
+          { id: 'n1', type: 'data.csv_loader', params: {} },
+          { id: 'n2', type: 'data.train_test_split', params: {} },
+        ],
+        edges: [{ from: 'n1', to: 'n2.table' }],
+      },
       layout: {},
     }
 

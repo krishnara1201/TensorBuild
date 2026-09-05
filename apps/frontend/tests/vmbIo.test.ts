@@ -54,6 +54,16 @@ describe('saveProjectAs inside Tauri', () => {
     expect(invokeMock).not.toHaveBeenCalled()
     expect(result).toEqual({ ok: false })
   })
+
+  it('returns {ok: false, error} instead of throwing when the write_vmb_file invoke rejects', async () => {
+    ;(globalThis as { isTauri?: boolean }).isTauri = true
+    saveMock.mockResolvedValue('/home/user/pipeline.vmb')
+    invokeMock.mockRejectedValue('permission denied')
+
+    const result = await saveProjectAs(FILE)
+
+    expect(result).toEqual({ ok: false, error: 'permission denied' })
+  })
 })
 
 describe('saveProject inside Tauri', () => {
@@ -118,6 +128,16 @@ describe('openProject inside Tauri', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toMatch(/not valid json/i)
+  })
+
+  it('returns {ok: false, error} instead of throwing when the read_vmb_file invoke rejects', async () => {
+    ;(globalThis as { isTauri?: boolean }).isTauri = true
+    openMock.mockResolvedValue('/home/user/pipeline.vmb')
+    invokeMock.mockRejectedValue('file not found')
+
+    const result = await openProject()
+
+    expect(result).toEqual({ ok: false, error: 'file not found' })
   })
 })
 

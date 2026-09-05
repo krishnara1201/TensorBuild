@@ -4,7 +4,7 @@ import type { VmbProjectFile } from '../ir/types'
 
 const FILTERS = [{ name: 'TensorBuild Project', extensions: ['vmb'] }]
 
-export type SaveOutcome = { ok: true; path: string | null } | { ok: false }
+export type SaveOutcome = { ok: true; path: string | null } | { ok: false; error?: string }
 export type OpenOutcome = { ok: true; path: string | null; raw: unknown } | { ok: false; error?: string }
 
 function downloadInBrowser(file: VmbProjectFile): void {
@@ -39,11 +39,12 @@ function pickFileInBrowser(): Promise<{ ok: true; path: null; raw: unknown } | {
       reader.onerror = () => resolve({ ok: false, error: 'Failed to read the selected file.' })
       reader.readAsText(selected)
     }
-    // No 'cancel' event exists for <input type="file">, so a dialog dismissed
-    // without picking a file simply never fires onchange and this promise
-    // never resolves — an accepted limitation of the browser fallback path,
-    // not a bug: Tauri's native dialogs (the primary path) resolve `null`
-    // on cancel instead.
+    // Modern browsers (Chrome 113+/Firefox 109+/Safari 16.4+) fire a 'cancel'
+    // event on the <input type="file"> when the picker is dismissed without
+    // a selection, so we resolve on that instead of leaving the promise
+    // unresolved forever — Tauri's native dialogs (the primary path) resolve
+    // `null` on cancel instead.
+    input.oncancel = () => resolve({ ok: false })
     input.click()
   })
 }
@@ -57,13 +58,21 @@ export async function saveProjectAs(file: VmbProjectFile): Promise<SaveOutcome> 
   if (typeof path !== 'string') {
     return { ok: false }
   }
-  await invoke('write_vmb_file', { path, contents: JSON.stringify(file, null, 2) })
+  try {
+    await invoke('write_vmb_file', { path, contents: JSON.stringify(file, null, 2) })
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
   return { ok: true, path }
 }
 
 export async function saveProject(file: VmbProjectFile, currentPath: string | null): Promise<SaveOutcome> {
   if (isTauri() && currentPath) {
-    await invoke('write_vmb_file', { path: currentPath, contents: JSON.stringify(file, null, 2) })
+    try {
+      await invoke('write_vmb_file', { path: currentPath, contents: JSON.stringify(file, null, 2) })
+    } catch (err) {
+      return { ok: false, error: String(err) }
+    }
     return { ok: true, path: currentPath }
   }
   return saveProjectAs(file)
@@ -77,7 +86,12 @@ export async function openProject(): Promise<OpenOutcome> {
   if (typeof path !== 'string') {
     return { ok: false }
   }
-  const contents = await invoke<string>('read_vmb_file', { path })
+  let contents: string
+  try {
+    contents = await invoke<string>('read_vmb_file', { path })
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
   try {
     return { ok: true, path, raw: JSON.parse(contents) }
   } catch {

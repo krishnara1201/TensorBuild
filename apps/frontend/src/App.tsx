@@ -16,6 +16,9 @@ import { nodeStatusesFromTrainingState } from './training/nodeStatuses'
 import { useTrainingRun } from './training/useTrainingRun'
 import { VisualizationsPanel } from './visualizations/VisualizationsPanel'
 
+const MUTATING_NODE_CHANGE_TYPES = new Set(['position', 'remove', 'add', 'replace'])
+const MUTATING_EDGE_CHANGE_TYPES = new Set(['remove', 'add', 'replace'])
+
 export function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<PipelineNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<PipelineEdge>([])
@@ -60,7 +63,7 @@ export function App() {
 
   const handleNodesChange = useCallback<OnNodesChange<PipelineNode>>(
     (changes) => {
-      setIsDirty(true)
+      if (changes.some((change) => MUTATING_NODE_CHANGE_TYPES.has(change.type))) setIsDirty(true)
       onNodesChange(changes)
     },
     [onNodesChange],
@@ -68,7 +71,7 @@ export function App() {
 
   const handleEdgesChange = useCallback<OnEdgesChange<PipelineEdge>>(
     (changes) => {
-      setIsDirty(true)
+      if (changes.some((change) => MUTATING_EDGE_CHANGE_TYPES.has(change.type))) setIsDirty(true)
       onEdgesChange(changes)
     },
     [onEdgesChange],
@@ -124,7 +127,10 @@ export function App() {
 
   const handleSave = useCallback(async () => {
     const result = await saveProject(toVmbFile(nodes, edges), currentFilePath)
-    if (!result.ok) return
+    if (!result.ok) {
+      if (result.error) setProjectError(result.error)
+      return
+    }
     if (result.path) setCurrentFilePath(result.path)
     setProjectError(null)
     setIsDirty(false)
@@ -132,7 +138,10 @@ export function App() {
 
   const handleSaveAs = useCallback(async () => {
     const result = await saveProjectAs(toVmbFile(nodes, edges))
-    if (!result.ok) return
+    if (!result.ok) {
+      if (result.error) setProjectError(result.error)
+      return
+    }
     if (result.path) setCurrentFilePath(result.path)
     setProjectError(null)
     setIsDirty(false)
@@ -147,7 +156,12 @@ export function App() {
       return
     }
 
-    const converted = fromVmbFile(result.raw, manifests ?? [])
+    if (!manifests) {
+      setProjectError('Node registry not loaded yet — is the engine running?')
+      return
+    }
+
+    const converted = fromVmbFile(result.raw, manifests)
     if (!converted.ok) {
       setProjectError(converted.error)
       return
@@ -167,16 +181,21 @@ export function App() {
     setIsDirty(false)
   }, [isDirty, manifests, setNodes, setEdges, preview, runMutation, codeMutation])
 
+  const isRunning =
+    runMutation.isPending ||
+    (activeRunId !== null && (trainingState.status === 'connecting' || trainingState.status === 'running'))
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault()
+        if (isRunning) return
         void handleSave()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSave])
+  }, [handleSave, isRunning])
 
   const handlePreview = useCallback(
     (nodeId: string, port: string) => {
@@ -193,10 +212,6 @@ export function App() {
     }
     return {}
   }, [activeRunId, trainingState, runMutation.isPending, nodes])
-
-  const isRunning =
-    runMutation.isPending ||
-    (activeRunId !== null && (trainingState.status === 'connecting' || trainingState.status === 'running'))
 
   const resultMetrics =
     runMutation.data?.kind === 'sync'

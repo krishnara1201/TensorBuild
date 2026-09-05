@@ -59,9 +59,13 @@ vi.mock('../src/canvas/PipelineCanvas', () => ({
   PipelineCanvas: ({
     nodeStatuses,
     setNodes,
+    onNodesChange,
+    onEdgesChange,
   }: {
     nodeStatuses: Record<string, string>
     setNodes: (nodes: unknown[]) => void
+    onNodesChange: (changes: Array<{ type: string; id: string }>) => void
+    onEdgesChange: (changes: Array<{ type: string; id: string }>) => void
   }) => {
     useEffect(() => {
       if (stubNodeFlag.shouldInject) {
@@ -93,6 +97,30 @@ vi.mock('../src/canvas/PipelineCanvas', () => ({
         {Object.entries(nodeStatuses).map(([id, status]) => (
           <div key={id} data-testid={`node-status-${id}`}>{`${id}:${status}`}</div>
         ))}
+        <button
+          type="button"
+          onClick={() => onNodesChange([{ type: 'select', id: 'n1', selected: true } as never])}
+        >
+          Fire node select change
+        </button>
+        <button type="button" onClick={() => onNodesChange([{ type: 'dimensions', id: 'n1' } as never])}>
+          Fire node dimensions change
+        </button>
+        <button type="button" onClick={() => onNodesChange([{ type: 'position', id: 'n1' } as never])}>
+          Fire node position change
+        </button>
+        <button type="button" onClick={() => onNodesChange([{ type: 'remove', id: 'n1' } as never])}>
+          Fire node remove change
+        </button>
+        <button
+          type="button"
+          onClick={() => onEdgesChange([{ type: 'select', id: 'e1', selected: true } as never])}
+        >
+          Fire edge select change
+        </button>
+        <button type="button" onClick={() => onEdgesChange([{ type: 'remove', id: 'e1' } as never])}>
+          Fire edge remove change
+        </button>
       </div>
     )
   },
@@ -440,5 +468,78 @@ describe('App', () => {
 
     expect(window.confirm).toHaveBeenCalledWith('You have unsaved changes. Open a different project anyway?')
     expect(openProjectMock).not.toHaveBeenCalled()
+  })
+
+  it('does not mark the canvas dirty on a non-mutating "select" or "dimensions" node change', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    confirmSpy.mockClear()
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /fire node select change/i }))
+    await userEvent.click(screen.getByRole('button', { name: /fire node dimensions change/i }))
+    await userEvent.click(screen.getByRole('button', { name: /fire edge select change/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^new$/i }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+  })
+
+  it('marks the canvas dirty on a mutating "position" or "remove" node/edge change', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /fire node position change/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^new$/i }))
+
+    expect(window.confirm).toHaveBeenCalledWith('New project? This clears all nodes and results.')
+  })
+
+  it('marks the canvas dirty on a "remove" edge change', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /fire edge remove change/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^new$/i }))
+
+    expect(window.confirm).toHaveBeenCalledWith('New project? This clears all nodes and results.')
+  })
+
+  it('shows the error message in the banner when Save fails', async () => {
+    saveProjectMock.mockResolvedValue({ ok: false, error: 'disk full' })
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect(await screen.findByText('disk full')).toBeInTheDocument()
+  })
+
+  it('shows "Node registry not loaded yet" instead of an unknown-type error when manifests have not loaded', async () => {
+    vi.mocked(client.useNodes).mockReturnValue({ data: undefined, isLoading: true, error: null } as ReturnType<
+      typeof client.useNodes
+    >)
+    openProjectMock.mockResolvedValue({
+      ok: true,
+      path: '/home/user/loaded.vmb',
+      raw: {
+        version: 1,
+        ir: { nodes: [{ id: 'n1', type: 'data.csv_loader', params: {} }], edges: [] },
+        layout: {},
+      },
+    })
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^open$/i }))
+
+    expect(await screen.findByText('Node registry not loaded yet — is the engine running?')).toBeInTheDocument()
+    expect(screen.queryByText(/unknown node types/i)).not.toBeInTheDocument()
   })
 })
