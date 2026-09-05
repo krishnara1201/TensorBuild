@@ -117,17 +117,23 @@ the canvas after a load can't collide with a loaded node's id.
 
 ## Shell (Tauri): file access
 
-Add `tauri-plugin-fs` (`Cargo.toml` dependency, `.plugin(tauri_plugin_fs::init())`
-in `main.rs`, `fs:default` added to the `default` capability alongside the
-existing `dialog:default`) for `readTextFile`/`writeTextFile`. Native
-picking uses the already-present `tauri-plugin-dialog`:
+Two new plain `#[tauri::command]`s in `main.rs` — `read_vmb_file(path)` /
+`write_vmb_file(path, contents)` — implemented with `std::fs` directly,
+the same trust tier as the existing `engine_base_url` command. This was
+chosen over adding `tauri-plugin-fs` as a dependency: that plugin's
+IPC-exposed commands enforce a path allowlist (`fs:scope`) that would need
+to be configured to cover arbitrary user-chosen save/open locations,
+whereas an app-defined command is trusted code with no ACL surface to
+configure, matching how this project already treats `engine_base_url`. No
+new Cargo dependency and no capability/permission file changes are
+needed. Native picking uses the already-present `tauri-plugin-dialog`:
 
 - **Save As**: `save({ filters: [{ name: 'TensorBuild Project', extensions: ['vmb'] }] })`
-  → write `JSON.stringify(toVmbFile(...), null, 2)` to the chosen path.
+  → `invoke('write_vmb_file', { path, contents: JSON.stringify(toVmbFile(...), null, 2) })`.
 - **Open**: `open({ filters: [{ name: 'TensorBuild Project', extensions: ['vmb'] }] })`
-  → read the file, `JSON.parse`, run through `fromVmbFile`.
+  → `invoke('read_vmb_file', { path })`, `JSON.parse`, run through `fromVmbFile`.
 - **Save** (when `currentFilePath` is already set): writes directly to
-  that path, no dialog.
+  that path via `write_vmb_file`, no dialog.
 
 ## App state & UX
 
