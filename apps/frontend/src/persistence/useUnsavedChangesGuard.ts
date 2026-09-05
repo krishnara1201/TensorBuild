@@ -13,6 +13,7 @@ export function useUnsavedChangesGuard(isDirty: boolean): void {
     if (!isTauri()) return
 
     let unlisten: (() => void) | undefined
+    let cancelled = false
 
     getCurrentWindow()
       .onCloseRequested((event) => {
@@ -21,10 +22,15 @@ export function useUnsavedChangesGuard(isDirty: boolean): void {
         }
       })
       .then((fn) => {
-        unlisten = fn
+        if (cancelled) {
+          fn()
+        } else {
+          unlisten = fn
+        }
       })
 
     return () => {
+      cancelled = true
       unlisten?.()
     }
   }, [])
