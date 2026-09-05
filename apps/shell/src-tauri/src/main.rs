@@ -18,6 +18,16 @@ fn engine_base_url(port: tauri::State<EnginePort>) -> String {
     format!("http://127.0.0.1:{}", port.0)
 }
 
+#[tauri::command]
+fn read_vmb_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|err| format!("failed to read {path}: {err}"))
+}
+
+#[tauri::command]
+fn write_vmb_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|err| format!("failed to write {path}: {err}"))
+}
+
 fn main() {
     let port = engine::pick_free_port().expect("failed to find a free port for the engine");
     let child: Arc<Mutex<Option<engine::EngineChild>>> = Arc::new(Mutex::new(None));
@@ -33,7 +43,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(EnginePort(port))
         .manage(EngineProcess(child.clone()))
-        .invoke_handler(tauri::generate_handler![engine_base_url])
+        .invoke_handler(tauri::generate_handler![engine_base_url, read_vmb_file, write_vmb_file])
         .setup(move |app| {
             // The sidecar is a PyInstaller onefile binary, which re-extracts
             // its ~2GB payload to a temp directory on every launch (not just
