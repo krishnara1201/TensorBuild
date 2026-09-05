@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createPipelineNode, defaultsFromManifest } from '../src/canvas/nodeFactory'
+import { createPipelineNode, defaultsFromManifest, nextNodeId } from '../src/canvas/nodeFactory'
 import type { NodeManifest } from '../src/api/types'
+import type { PipelineNode } from '../src/canvas/types'
 
 const splitManifest: NodeManifest = {
   id: 'data.train_test_split',
@@ -41,5 +42,33 @@ describe('createPipelineNode', () => {
         params: { test_size: 0.2, random_state: 42 },
       },
     })
+  })
+})
+
+describe('nextNodeId', () => {
+  it('returns n1 for an empty canvas', () => {
+    expect(nextNodeId([])).toBe('n1')
+  })
+
+  it('returns one past the highest existing numeric suffix', () => {
+    const nodes: PipelineNode[] = [
+      { id: 'n1', type: 'pipelineNode', position: { x: 0, y: 0 }, data: { manifest: splitManifest, params: {} } },
+      { id: 'n3', type: 'pipelineNode', position: { x: 0, y: 0 }, data: { manifest: splitManifest, params: {} } },
+    ]
+
+    expect(nextNodeId(nodes)).toBe('n4')
+  })
+
+  it('ignores node ids that do not match the n<number> pattern (e.g. loaded from a hand-edited file)', () => {
+    const nodes: PipelineNode[] = [
+      {
+        id: 'custom_node',
+        type: 'pipelineNode',
+        position: { x: 0, y: 0 },
+        data: { manifest: splitManifest, params: {} },
+      },
+    ]
+
+    expect(nextNodeId(nodes)).toBe('n1')
   })
 })

@@ -24,3 +24,13 @@ export function createPipelineNode(
     },
   }
 }
+
+const NODE_ID_PATTERN = /^n(\d+)$/
+
+export function nextNodeId(nodes: PipelineNode[]): string {
+  const maxSuffix = nodes.reduce((max, node) => {
+    const match = NODE_ID_PATTERN.exec(node.id)
+    return match ? Math.max(max, Number(match[1])) : max
+  }, 0)
+  return `n${maxSuffix + 1}`
+}

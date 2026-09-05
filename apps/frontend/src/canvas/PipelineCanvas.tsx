@@ -17,10 +17,10 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
 } from '@xyflow/react'
-import { useCallback, useMemo, useRef, type Dispatch, type DragEvent, type SetStateAction } from 'react'
+import { useCallback, useMemo, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import type { Port } from '../api/types'
 import { useNodes } from '../api/client'
-import { createPipelineNode } from './nodeFactory'
+import { createPipelineNode, nextNodeId } from './nodeFactory'
 import type { NodeRunStatus, PipelineEdge, PipelineNode, PipelineNodeData } from './types'
 import { isValidConnection as validateConnection } from './validation'
 
@@ -203,7 +203,6 @@ function PipelineCanvasInner({
 }: PipelineCanvasProps) {
   const { data: manifests } = useNodes()
   const { screenToFlowPosition } = useReactFlow()
-  const nodeIdCounter = useRef(0)
 
   const displayNodes = useMemo(
     () => nodes.map((node) => ({ ...node, data: { ...node.data, status: nodeStatuses[node.id] ?? 'idle' } })),
@@ -237,11 +236,10 @@ function PipelineCanvasInner({
         return
       }
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-      nodeIdCounter.current += 1
-      const newNode = createPipelineNode(manifest, `n${nodeIdCounter.current}`, position)
+      const newNode = createPipelineNode(manifest, nextNodeId(nodes), position)
       setNodes((nds) => [...nds, newNode])
     },
-    [manifests, screenToFlowPosition, setNodes],
+    [manifests, nodes, screenToFlowPosition, setNodes],
   )
 
   const handleDragOver = useCallback((event: DragEvent) => {
