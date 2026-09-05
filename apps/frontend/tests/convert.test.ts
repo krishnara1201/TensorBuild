@@ -187,4 +187,49 @@ describe('fromVmbFile', () => {
     if (!result.ok) return
     expect(result.nodes[0].position).toEqual({ x: 0, y: 0 })
   })
+
+  it('fails with a clear error when a node entry is null instead of throwing', () => {
+    const file = {
+      version: 1,
+      ir: { nodes: [null], edges: [] },
+      layout: {},
+    }
+
+    const result = fromVmbFile(file, manifests)
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file is not a valid TensorBuild project (missing pipeline data).',
+    })
+  })
+
+  it('fails with a clear error when a node is missing type field', () => {
+    const file = {
+      version: 1,
+      ir: { nodes: [{ id: 'n1', params: {} }], edges: [] },
+      layout: {},
+    }
+
+    const result = fromVmbFile(file, manifests)
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file is not a valid TensorBuild project (missing pipeline data).',
+    })
+  })
+
+  it('fails with a clear error when an edge is missing from field', () => {
+    const file = {
+      version: 1,
+      ir: { nodes: [{ id: 'n1', type: 'data.csv_loader', params: {} }], edges: [{ to: 'n2.table' }] },
+      layout: {},
+    }
+
+    const result = fromVmbFile(file, manifests)
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'This file is not a valid TensorBuild project (missing pipeline data).',
+    })
+  })
 })

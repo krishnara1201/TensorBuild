@@ -63,6 +63,20 @@ export function fromVmbFile(raw: unknown, manifests: NodeManifest[]): FromVmbRes
   const irNodes = ir.nodes as NodeSpec[]
   const irEdges = ir.edges as EdgeSpec[]
 
+  // Validate each node has the required shape
+  for (const node of irNodes) {
+    if (!isPlainObject(node) || typeof node.id !== 'string' || typeof node.type !== 'string') {
+      return { ok: false, error: 'This file is not a valid TensorBuild project (missing pipeline data).' }
+    }
+  }
+
+  // Validate each edge has the required shape
+  for (const edge of irEdges) {
+    if (!isPlainObject(edge) || typeof edge.from !== 'string' || typeof edge.to !== 'string') {
+      return { ok: false, error: 'This file is not a valid TensorBuild project (missing pipeline data).' }
+    }
+  }
+
   const manifestById = new Map(manifests.map((manifest) => [manifest.id, manifest]))
   const missingTypes = [...new Set(irNodes.map((node) => node.type).filter((type) => !manifestById.has(type)))]
   if (missingTypes.length > 0) {
