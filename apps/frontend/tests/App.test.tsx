@@ -17,6 +17,22 @@ vi.mock('../src/api/client', async () => {
   return { ...actual, useNodes: vi.fn(), useRunPipeline: vi.fn(), useGetCode: vi.fn(), previewSubgraph: vi.fn() }
 })
 
+const { saveProjectMock, saveProjectAsMock, openProjectMock } = vi.hoisted(() => ({
+  saveProjectMock: vi.fn(),
+  saveProjectAsMock: vi.fn(),
+  openProjectMock: vi.fn(),
+}))
+
+vi.mock('../src/persistence/vmbIo', () => ({
+  saveProject: saveProjectMock,
+  saveProjectAs: saveProjectAsMock,
+  openProject: openProjectMock,
+}))
+
+vi.mock('../src/persistence/useUnsavedChangesGuard', () => ({
+  useUnsavedChangesGuard: vi.fn(),
+}))
+
 vi.mock('../src/training/useTrainingRun', async () => {
   const actual = await vi.importActual<typeof import('../src/training/useTrainingRun')>(
     '../src/training/useTrainingRun',
@@ -103,6 +119,9 @@ describe('App', () => {
 
   afterEach(() => {
     stubNodeFlag.shouldInject = false
+    saveProjectMock.mockReset()
+    saveProjectAsMock.mockReset()
+    openProjectMock.mockReset()
   })
 
   it('renders the app heading', () => {
@@ -260,23 +279,40 @@ describe('App', () => {
     expect(screen.queryByText('Training complete')).not.toBeInTheDocument()
   })
 
-  it('does nothing when the reset confirmation is cancelled', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
+  it('clicking New does nothing else and does not prompt when the canvas is clean', async () => {
     const runMutate = vi.fn()
     const runReset = vi.fn()
     const codeReset = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
     vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ mutate: runMutate, reset: runReset }))
     vi.mocked(client.useGetCode).mockReturnValue(mockMutation({ reset: codeReset }))
 
     render(<App />)
-    await userEvent.click(screen.getByRole('button', { name: /^reset$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^new$/i }))
 
-    expect(window.confirm).toHaveBeenCalledWith('Reset the canvas? This clears all nodes and results.')
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(runReset).toHaveBeenCalled()
+    expect(codeReset).toHaveBeenCalled()
+  })
+
+  it('New prompts for confirmation once the canvas is dirty, and does nothing if cancelled', async () => {
+    stubNodeFlag.shouldInject = true
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const runReset = vi.fn()
+    const codeReset = vi.fn()
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({ reset: runReset }))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({ reset: codeReset }))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^new$/i }))
+
+    expect(window.confirm).toHaveBeenCalledWith('New project? This clears all nodes and results.')
     expect(runReset).not.toHaveBeenCalled()
     expect(codeReset).not.toHaveBeenCalled()
   })
 
-  it('clears run/code mutation state and returns to the Results tab after the reset is confirmed', async () => {
+  it('clears run/code mutation state and returns to the Results tab after New is confirmed on a dirty canvas', async () => {
+    stubNodeFlag.shouldInject = true
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const runReset = vi.fn()
     const codeReset = vi.fn()
@@ -288,7 +324,7 @@ describe('App', () => {
     await userEvent.click(screen.getByText('Fake preview trigger'))
     expect(await screen.findByRole('tab', { name: /data preview/i })).toHaveAttribute('aria-selected', 'true')
 
-    await userEvent.click(screen.getByRole('button', { name: /^reset$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^new$/i }))
 
     expect(runReset).toHaveBeenCalled()
     expect(codeReset).toHaveBeenCalled()
@@ -308,5 +344,101 @@ describe('App', () => {
     rerender(<App />)
 
     expect(screen.queryByTestId('node-status-n1')).not.toBeInTheDocument()
+  })
+
+  it('saves to the remembered path on Save, and shows the filename once one exists', async () => {
+    saveProjectMock.mockResolvedValue({ ok: true, path: '/home/user/pipeline.vmb' })
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect(saveProjectMock).toHaveBeenCalledWith(
+      { version: 1, ir: { nodes: [], edges: [] }, layout: {} },
+      null,
+    )
+    expect(await screen.findByText('pipeline.vmb')).toBeInTheDocument()
+  })
+
+  it('Save As always prompts, even when a current path is already set', async () => {
+    saveProjectMock.mockResolvedValue({ ok: true, path: '/home/user/pipeline.vmb' })
+    saveProjectAsMock.mockResolvedValue({ ok: true, path: '/home/user/renamed.vmb' })
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await screen.findByText('pipeline.vmb')
+    await userEvent.click(screen.getByRole('button', { name: /^save as$/i }))
+
+    expect(saveProjectAsMock).toHaveBeenCalled()
+    expect(await screen.findByText('renamed.vmb')).toBeInTheDocument()
+  })
+
+  it('loads nodes/edges from Open and shows the opened filename', async () => {
+    vi.mocked(client.useNodes).mockReturnValue({
+      data: [
+        {
+          id: 'data.csv_loader',
+          category: 'Data',
+          label: 'CSV Loader',
+          inputs: [],
+          outputs: [{ name: 'table', type: 'Table' }],
+          params: [],
+          long_running: false,
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof client.useNodes>)
+    openProjectMock.mockResolvedValue({
+      ok: true,
+      path: '/home/user/loaded.vmb',
+      raw: {
+        version: 1,
+        ir: { nodes: [{ id: 'n1', type: 'data.csv_loader', params: {} }], edges: [] },
+        layout: { n1: { x: 5, y: 5 } },
+      },
+    })
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^open$/i }))
+
+    expect(await screen.findByText('loaded.vmb')).toBeInTheDocument()
+  })
+
+  it('shows an error banner and leaves the canvas unchanged when Open fails validation', async () => {
+    vi.mocked(client.useNodes).mockReturnValue({ data: [], isLoading: false, error: null } as ReturnType<
+      typeof client.useNodes
+    >)
+    openProjectMock.mockResolvedValue({
+      ok: true,
+      path: '/home/user/broken.vmb',
+      raw: { version: 1, ir: { nodes: [{ id: 'n1', type: 'unknown.node', params: {} }], edges: [] }, layout: {} },
+    })
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^open$/i }))
+
+    expect(await screen.findByText('Unknown node types: unknown.node')).toBeInTheDocument()
+    expect(screen.getByText('Untitled')).toBeInTheDocument()
+  })
+
+  it('Open confirms before discarding a dirty canvas, and does nothing if cancelled', async () => {
+    stubNodeFlag.shouldInject = true
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(client.useRunPipeline).mockReturnValue(mockMutation({}))
+    vi.mocked(client.useGetCode).mockReturnValue(mockMutation({}))
+
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /^open$/i }))
+
+    expect(window.confirm).toHaveBeenCalledWith('You have unsaved changes. Open a different project anyway?')
+    expect(openProjectMock).not.toHaveBeenCalled()
   })
 })
